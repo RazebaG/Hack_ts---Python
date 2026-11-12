@@ -170,3 +170,9 @@ def test_privacidade_rnf16_sem_dados_usuario():
                 "perfil",
                 "registrado_em",
             }
+
+
+def test_testes_nao_usam_o_arquivo_real_de_avaliacoes():
+    """O fixture limpar() apaga o arquivo; ele nunca pode ser o data/avaliacoes.jsonl real."""
+    real = Path(__file__).resolve().parent.parent / "data" / "avaliacoes.jsonl"
+    assert avaliacoes_repo.file_path.resolve() != real.resolve()

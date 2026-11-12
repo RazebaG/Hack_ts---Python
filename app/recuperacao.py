@@ -1,4 +1,5 @@
 import math
+import os
 import re
 import unicodedata
 from collections import Counter
@@ -40,8 +41,20 @@ STOPWORDS = {
     "pelos", "por", "qual", "quais", "quando", "quanto", "quantos", "quantas",
     "que", "quem", "se", "sem", "seu", "seus", "so", "sua", "suas", "tambem",
     "te", "tem", "temos", "tenho", "um", "uma", "umas", "uns", "voce", "voces",
-    "pode", "podem", "ser",
+    "pode", "podem", "ser", "posso", "devo", "preciso", "gostaria", "saber",
+    "hoje", "amanha", "ontem", "agora",
 }
+
+# Limiares de evidência para abstenção (consta=false)
+LIMIAR_SCORE = 6.0
+LIMIAR_COBERTURA = 0.6
+# Seções abaixo desta fração da melhor pontuação não entram como citação
+FRACAO_RELEVANCIA = 0.4
+MAX_POR_DOCUMENTO = 2
+LIMITE_TRECHO = 220
+# Penalidade de versões substituídas e limiar (sem penalidade) para emitir aviso
+FATOR_SUBSTITUIDO = 0.5
+FRACAO_AVISO = 0.75
 
 VERB_LEMMAS = {
     "peco": ["pedir", "pedido", "solicitar", "solicitacao"],
@@ -49,6 +62,13 @@ VERB_LEMMAS = {
     "decido": ["decidir", "decisao", "decide", "gestor"],
     "decide": ["decidir", "decisao", "gestor"],
     "tirar": ["gozo", "gozar", "ferias"],
+    "vender": ["abono", "converter", "conversao"],
+    # sinônimos usuais para o vocabulário do acervo
+    "colaborador": ["empregado"],
+    "colaboradores": ["empregados"],
+    "funcionario": ["empregado"],
+    "funcionarios": ["empregados"],
+    "chefe": ["gestor"],
 }
 
 
@@ -57,10 +77,20 @@ def normalize_text(text: str) -> str:
     return unicodedata.normalize("NFKD", text).encode("ASCII", "ignore").decode("utf-8").lower()
 
 
+DATA_RE = re.compile(r"\b\d{1,2}/\d{1,2}(?:/\d{2,4})?\b")
+
+
+def tokenizar(text_norm: str) -> List[str]:
+    """Tokens de texto já normalizado; datas (05/05/2027) viram um token próprio."""
+    datas = DATA_RE.findall(text_norm)
+    resto = DATA_RE.sub(" ", text_norm)
+    return datas + re.findall(r"[a-z0-9]+(?:-[a-z0-9]+)?", resto)
+
+
 def extract_content_words(text: str) -> List[str]:
     """Extrai palavras de conteúdo (removendo stopwords) com expansão de lemas."""
     text_norm = normalize_text(text)
-    words = re.findall(r"[a-z0-9]+(?:-[a-z0-9]+)?", text_norm)
+    words = tokenizar(text_norm)
     res = []
     for w in words:
         if w not in STOPWORDS and len(w) > 1:
@@ -169,29 +199,35 @@ class BuscadorLexico:
         return math.log((self.N - n + 0.5) / (n + 0.5) + 1.0)
 
     def _extrair_trecho_relevante(self, texto: str, titulo: str, query: str) -> str:
-        """Extrai trecho objetivo relevante para a citação (≤ 250 caracteres)."""
-        clean_text = texto.strip().replace("\n", " ")
+        """Extrai o trecho literal mais relevante para a citação (≤ ~220 caracteres).
+
+        Escolhe a frase com maior sobreposição (palavras, radicais e lemas) com a
+        pergunta e completa com as frases seguintes até o limite, para não cortar
+        a resposta quando ela vem logo depois (ex.: tabelas de marcos e datas).
+        """
+        clean_text = re.sub(r"\s+", " ", texto).strip()
         if not clean_text:
             return titulo[:200]
 
-        sentences = re.split(r"(?<=[.!?])\s+", clean_text)
-        q_norm = normalize_text(query)
-        q_words = set(re.findall(r"[a-z0-9]+", q_norm))
+        sentences = [x for x in re.split(r"(?<=[.!?;])\s+", clean_text) if x]
+        q_words = set(extract_content_words(query))
+        q_terms = q_words | {stemmer.stem(w) for w in q_words}
 
-        best_sentence = sentences[0]
-        max_overlap = -1
-
-        for sent in sentences:
-            s_norm = normalize_text(sent)
-            s_words = set(re.findall(r"[a-z0-9]+", s_norm))
-            overlap = len(q_words & s_words)
+        best_idx, max_overlap = 0, -1
+        for i, sent in enumerate(sentences):
+            s_words = set(extract_content_words(sent))
+            s_terms = s_words | {stemmer.stem(w) for w in s_words}
+            overlap = sum(self._idf(t) or 1.0 for t in q_terms & s_terms)
             if overlap > max_overlap:
-                max_overlap = overlap
-                best_sentence = sent
+                max_overlap, best_idx = overlap, i
 
-        trecho = best_sentence.strip()
-        if len(trecho) > 220:
-            trecho = trecho[:217] + "..."
+        trecho = sentences[best_idx]
+        for nxt in sentences[best_idx + 1:]:
+            if len(trecho) + 1 + len(nxt) > LIMITE_TRECHO:
+                break
+            trecho = f"{trecho} {nxt}"
+        if len(trecho) > LIMITE_TRECHO:
+            trecho = trecho[: LIMITE_TRECHO - 3].rstrip() + "..."
         return trecho
 
     def buscar(self, query: str, top_k: int = 3) -> Tuple[bool, List[ResultadoBusca], List[str]]:
@@ -201,173 +237,116 @@ class BuscadorLexico:
             (consta: bool, resultados: List[ResultadoBusca], avisos: List[str])
         """
         q_norm = normalize_text(query)
-        raw_words = [w for w in re.findall(r"[a-z0-9]+", q_norm) if w not in STOPWORDS and len(w) > 1]
+        raw_words = list(
+            dict.fromkeys(w for w in tokenizar(q_norm) if w not in STOPWORDS and len(w) > 1)
+        )
         if not raw_words:
             return False, [], []
 
-        # 1. Verificação de palavras inexistentes no vocabulário do acervo (abstenção)
-        missing_words = []
+        # Cada termo da pergunta vira um grupo de equivalência (palavra, radical e
+        # lemas/sinônimos). O grupo pontua uma vez só (melhor token), para que a
+        # expansão de lemas não infle a pontuação. Termo ausente do acervo recebe o
+        # IDF máximo: pesa contra a cobertura e leva à abstenção quando é o núcleo
+        # da pergunta (ex.: "benefício alimentação").
+        idf_max = math.log((self.N + 0.5) / 0.5 + 1.0)
+        grupos: List[Tuple[Set[str], float]] = []
         for w in raw_words:
-            lemmas = VERB_LEMMAS.get(w, [w])
-            if not any(lm in self.corpus_tokens or stemmer.stem(lm) in self.corpus_tokens for lm in lemmas):
-                missing_words.append(w)
+            equivs = {w} | set(VERB_LEMMAS.get(w, []))
+            toks = equivs | {stemmer.stem(e) for e in equivs}
+            presentes = [t for t in toks if t in self.df]
+            peso = max((self._idf(t) for t in presentes), default=idf_max)
+            grupos.append((toks, peso))
+        peso_total = sum(p for _, p in grupos) or 1.0
 
-        if missing_words:
-            return False, [], []
-
-        # 2. Regra de abstenção: "elaborar, revisar e aprovar" pela mesma pessoa
-        c_words = extract_content_words(query)
-        stems_q = {stemmer.stem(w) for w in c_words}
-        if {"elabor", "revis", "aprov"}.issubset(stems_q):
-            has_all_three = any({"elabor", "revis", "aprov"}.issubset(s.stems_set) for s in self.sections)
-            if not has_all_three:
-                return False, [], []
-
-        q_tokens = c_words + [stemmer.stem(w) for w in c_words]
         k1 = 1.5
         b = 0.75
-
         scored: List[Tuple[float, float, SectionItem]] = []
         avisos_detectados: List[str] = []
 
-        # Detecção de menção a antecedência de férias ou NG_111 v2.0.0
-        perguntou_antecedencia = "antecedencia" in q_norm or "45 dias" in q_norm or "30 dias" in q_norm
-        perguntou_v2 = "2.0.0" in query or "v2" in q_norm
-
         for s in self.sections:
             tf = s.tf
+            norm_len = k1 * (1 - b + b * (s.len / self.avgdl))
             score = 0.0
-            doc_len = s.len
-
-            # Calcular cobertura sobre as palavras originais da query
-            matched_raw_count = 0
-            for w in raw_words:
-                equivs = {w, stemmer.stem(w)} | set(VERB_LEMMAS.get(w, []))
-                if (equivs & s.words_set) or any(stemmer.stem(e) in s.stems_set for e in equivs):
-                    matched_raw_count += 1
-
-            word_coverage = matched_raw_count / len(raw_words) if raw_words else 0.0
-
-            # Pontuação BM25
-            for t in set(q_tokens):
-                if t in tf:
-                    term_idf = self._idf(t)
-                    term_tf = tf[t]
-                    num = term_tf * (k1 + 1)
-                    den = term_tf + k1 * (1 - b + b * (doc_len / self.avgdl))
-                    score += term_idf * (num / den)
-
-            # Reforços determinísticos de precisão (boosters semânticos)
-            # Cena 1 do PRD: D-45 de 05/05/2027 = 21/03/2027 citando PX_1111-001
-            if ("05/05/2027" in query or "05/05" in query) and "05/05/2027" in s.texto:
-                score += 40.0
-                if s.codigo == "PX_1111-001":
-                    score += 15.0
-
-            if "aluguel" in q_norm and "aluguel" in s.raw_text:
-                score += 15.0
-                if s.codigo == "CTR_2026-012" and "decima" in s.raw_text:
-                    score += 20.0
-
-            if "orcamento" in q_norm and "96.000" in s.raw_text:
-                score += 25.0
-            if "inexecucao" in q_norm and "912,50" in s.raw_text:
-                score += 25.0
-            if "sublocar" in q_norm and "subloc" in s.raw_text:
-                score += 30.0
-            if "reajuste" in q_norm and "reajuste" in s.raw_text:
-                score += 25.0
-            if "abono" in q_norm and s.secao_id == "4.7.1":
-                score += 25.0
-            if "d-30" in q_norm and "8.5.2" in s.secao_id:
-                score += 30.0
-            if "quem aprova" in q_norm and "coworking" in q_norm and s.codigo == "NT_2026-018" and s.secao_id == "10":
-                score += 30.0
-            if "tempo decido" in q_norm and s.codigo == "NG_111" and s.secao_id == "4.5.2":
-                score += 30.0
-            if "pessoas da equipe" in q_norm and s.codigo == "NG_111" and s.secao_id == "4.6.3":
-                score += 30.0
+            peso_coberto = 0.0
+            for toks, peso in grupos:
+                melhor = 0.0
+                for t in toks:
+                    term_tf = tf.get(t, 0)
+                    if term_tf:
+                        parcial = self._idf(t) * (term_tf * (k1 + 1)) / (term_tf + norm_len)
+                        melhor = max(melhor, parcial)
+                if melhor > 0:
+                    score += melhor
+                    peso_coberto += peso
+            cobertura = peso_coberto / peso_total
 
             # Penalizar documentos substituídos na pontuação direta
             if s.substituido:
-                score *= 0.5
+                score *= FATOR_SUBSTITUIDO
 
-            scored.append((score, word_coverage, s))
+            scored.append((score, cobertura, s))
 
-        scored.sort(key=lambda x: x[0], reverse=True)
+        # Ordena por BM25 ponderado pela cobertura (ponderada por IDF) dos termos
+        scored.sort(key=lambda x: x[0] * (0.25 + x[1]), reverse=True)
         if not scored:
             return False, [], []
 
-        top_score, top_cov, top_s = scored[0]
+        top_score, top_cov, _ = scored[0]
+        if os.getenv("BUSCA_DEBUG"):
+            print("TOP", [(round(x[0], 1), round(x[1], 2), x[2].codigo, x[2].secao_id) for x in scored[:5]])
 
-        # Limiar de abstenção
-        if top_score < 10.0 or top_cov < 0.35:
+
+        # Limiar de abstenção: entre as primeiras colocadas, alguma seção precisa ter
+        # pontuação e cobertura suficientes
+        if not any(sc >= LIMIAR_SCORE and cov >= LIMIAR_COBERTURA for sc, cov, _ in scored[:5]):
             return False, [], []
 
-        # Se antecedência de férias ou versão 2 foi mencionada, incluir aviso de substituição
-        if (perguntou_antecedencia or perguntou_v2) and any(s.codigo == "NG_111" for _, _, s in scored[:top_k]):
-            avisos_detectados.append("NG_111 v2.0.0 foi substituída pela v3.0.0")
+        chave_top = top_score * (0.25 + top_cov)
 
-        # Selecionar top_k resultados garantindo documentos vigentes
+        # Seleciona top_k seções vigentes (no máximo MAX_POR_DOCUMENTO por documento).
+        # Seções de versões substituídas não são citadas: quando são relevantes
+        # para a pergunta, viram aviso de que a regra mudou na versão vigente.
         resultados: List[ResultadoBusca] = []
-        codigos_adicionados = set()
+        por_documento: Counter = Counter()
+        substituidas_relevantes: List[SectionItem] = []
 
         for sc, cov, s in scored:
-            if sc < 8.0:
-                break
-
-            doc_final = s
-            # Se for versão substituída, preferir a versão vigente equivalente
+            chave = sc * (0.25 + cov)
             if s.substituido:
-                vigente = self.acervo.buscar(s.codigo)
-                if vigente:
-                    # Encontrar melhor seção na versão vigente
-                    secao_vigente = vigente.secoes[0]
-                    for sec_cand in vigente.secoes:
-                        if sec_cand.id == s.secao_id or any(w in sec_cand.texto.lower() for w in raw_words):
-                            secao_vigente = sec_cand
-                            break
-                    doc_final = SectionItem(
-                        codigo=vigente.codigo,
-                        versao=vigente.versao,
-                        substituido=False,
-                        secao_id=secao_vigente.id,
-                        titulo=secao_vigente.titulo,
-                        texto=secao_vigente.texto,
-                        tipo_nome=vigente.tipo_nome,
-                        vinculado_a=vigente.vinculado_a,
-                        camada=vigente.camada,
-                        tokens=[],
-                        len=0,
-                        tf=Counter(),
-                        words_set=set(),
-                        stems_set=set(),
-                        raw_text="",
-                    )
-                    aviso_msg = f"{s.codigo} v{s.versao} foi substituída pela v{vigente.versao}"
-                    if aviso_msg not in avisos_detectados:
-                        avisos_detectados.append(aviso_msg)
-
-            chave = (doc_final.codigo, doc_final.secao_id)
-            if chave in codigos_adicionados:
+                # Sem a penalidade, o trecho antigo competiria com o melhor vigente:
+                # a regra mudou (ou foi reescrita) e o usuário deve ser avisado.
+                if chave / FATOR_SUBSTITUIDO >= chave_top * FRACAO_AVISO:
+                    substituidas_relevantes.append(s)
                 continue
-            codigos_adicionados.add(chave)
-
-            trecho = self._extrair_trecho_relevante(doc_final.texto, doc_final.titulo, query)
+            if chave < chave_top * FRACAO_RELEVANCIA:
+                continue
+            if len(resultados) >= top_k or por_documento[s.codigo] >= MAX_POR_DOCUMENTO:
+                continue
+            por_documento[s.codigo] += 1
             resultados.append(
                 ResultadoBusca(
-                    codigo=doc_final.codigo,
-                    versao=doc_final.versao,
-                    secao_id=doc_final.secao_id,
-                    titulo=doc_final.titulo,
-                    texto=doc_final.texto,
-                    trecho=trecho,
-                    camada=doc_final.camada,
+                    codigo=s.codigo,
+                    versao=s.versao,
+                    secao_id=s.secao_id,
+                    titulo=s.titulo,
+                    texto=s.texto,
+                    trecho=self._extrair_trecho_relevante(s.texto, s.titulo, query),
+                    camada=s.camada,
                     score=sc,
-                    avisos=list(avisos_detectados),
+                    avisos=[],
                 )
             )
-            if len(resultados) >= top_k:
-                break
+
+        if not resultados:
+            return False, [], []
+
+        citados = {r.codigo: r.versao for r in resultados}
+        for s in substituidas_relevantes:
+            if s.codigo in citados:
+                aviso = f"{s.codigo} v{s.versao} foi substituída pela v{citados[s.codigo]}"
+                if aviso not in avisos_detectados:
+                    avisos_detectados.append(aviso)
+        for r in resultados:
+            r.avisos = list(avisos_detectados)
 
         return True, resultados, avisos_detectados

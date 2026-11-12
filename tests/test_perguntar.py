@@ -1,3 +1,4 @@
+import re
 import pytest
 from fastapi.testclient import TestClient
 
@@ -131,13 +132,15 @@ def test_aceite_perfil_muda_ordem_sem_mudar_fontes():
     textos_unicos = set(respostas_texto.values())
     assert len(textos_unicos) == len(perfis), "Respostas dos perfis não variaram como esperado"
 
-    # Verificações de estilo e perspectiva de cada perfil
-    assert "Peça no Portal Raiz" in respostas_texto["empregado"]
-    assert "gestor imediato decide" in respostas_texto["gestor"]
-    assert "Prazo limite" in respostas_texto["diretoria"]
-    assert "pagamento pela GFI" in respostas_texto["financeiro"]
-    assert "Conforme a norma vigente" in respostas_texto["juridico"]
-    assert "Regra vigente de antecedência" in respostas_texto["rh"]
+    # 3. O conteúdo é o mesmo: os trechos citados no texto (com suas fontes) formam
+    #    o mesmo conjunto em todos os perfis; só a ordem e o rótulo mudam.
+    def trechos(texto):
+        return {t.strip() for t in re.findall(r"[^()]+?\(Fonte: [^)]+\)", texto.split(": ", 1)[1])}
+
+    conteudos = {perfil: trechos(texto) for perfil, texto in respostas_texto.items()}
+    assert all(c == conteudos["empregado"] for c in conteudos.values()), conteudos
+    for perfil, texto in respostas_texto.items():
+        assert "21/03/2027" in texto, f"Conclusão ausente para o perfil {perfil}"
 
 
 def test_adendo_v01_a_secao_sempre_existe_no_documento():
@@ -166,3 +169,34 @@ def test_adendo_v01_a_secao_sempre_existe_no_documento():
                 f"Seção '{c['secao']}' citada não existe no documento {c['codigo']} v{c['versao']}. "
                 f"Seções válidas: {secao_ids}"
             )
+
+
+def test_palavra_fora_do_vocabulario_nao_forca_abstencao():
+    """Uma palavra que não aparece no acervo não basta para responder 'não consta'."""
+    data = client.post(
+        "/api/perguntar",
+        json={"pergunta": "Quantos dias de férias o colaborador tem direito por ano?", "perfil": None},
+    ).json()
+    assert data["consta"] is True
+    assert any(c["codigo"] == "NG_111" for c in data["citacoes"])
+
+
+def test_aviso_de_versao_substituida_sem_palavra_chave_fixa():
+    """O aviso vem da relevância da versão substituída, não de palavras fixas na pergunta."""
+    data = client.post("/api/perguntar", json={"pergunta": "Quem aprova as férias?", "perfil": None}).json()
+    assert data["consta"] is True
+    assert "NG_111 v2.0.0 foi substituída pela v3.0.0" in data["avisos"]
+
+
+def test_resposta_e_extraida_das_citacoes():
+    """Todo trecho usado no texto da resposta é o trecho de uma das citações devolvidas."""
+    data = client.post(
+        "/api/perguntar",
+        json={"pergunta": "Posso sublocar o espaço de coworking?", "perfil": "juridico"},
+    ).json()
+    assert data["consta"] is True
+    citados = [c["trecho"].rstrip(" ;,.") for c in data["citacoes"]]
+    usados = re.findall(r"([^()]+?)\.? \(Fonte: ", data["resposta"].split(": ", 1)[1])
+    assert usados
+    for u in usados:
+        assert any(u.strip().rstrip(".") in c or c in u for c in citados), u
