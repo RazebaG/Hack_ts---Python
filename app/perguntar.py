@@ -1,3 +1,4 @@
+import logging
 import re
 import uuid
 from typing import Dict, List, Tuple
@@ -5,6 +6,9 @@ from typing import Dict, List, Tuple
 from app.acervo import AcervoRepository
 from app.models import Citacao, PerguntaRequest, PerguntaResponse
 from app.recuperacao import BuscadorLexico, ResultadoBusca
+from app.bedrock import gerar_resposta_converse, get_llm_provider
+
+logger = logging.getLogger(__name__)
 
 PERFIL_MAP = {
     "empregado": "empregado",
@@ -138,11 +142,107 @@ class PerguntarService:
             Citacao(codigo=r.codigo, versao=r.versao, secao=r.secao_id, trecho=r.trecho, camada=r.camada)
             for r in resultados
         ]
-        resposta_texto, proxima_acao = montar_resposta(resultados, avisos, perfil_key)
+        resposta_extrativa, proxima_acao = montar_resposta(resultados, avisos, perfil_key)
+
+        # Se LLM_PROVIDER não for bedrock, retorna a resposta extrativa padrão
+        if get_llm_provider() != "bedrock":
+            return PerguntaResponse(
+                resposta_id=resposta_id,
+                resposta=resposta_extrativa,
+                consta=True,
+                citacoes=citacoes,
+                avisos=avisos,
+                proxima_acao=proxima_acao,
+            )
+
+        # Geração com Bedrock (API Converse com Nova Pro / Nova Lite)
+        prompt_sistema = (
+            "Você é o Assistente do Arquivo Central de Normas da ACME (HACKA/TS 2026).\n"
+            "Responda à pergunta do usuário usando ESTRITAMENTE as informações dos trechos normativos fornecidos.\n\n"
+            "DIRETRIZES DE LEGAL DESIGN E UX WRITING:\n"
+            "1. NUNCA invente, presuma ou extrapole informações fora dos trechos. Se não constar, responda 'Não consta nas fontes'.\n"
+            "2. Comece diretamente pela conclusão em ordem direta, sem saudações nem introduções.\n"
+            "3. Frases curtas e objetivas (nenhuma frase com mais de 25 palavras).\n"
+            "4. Use datas concretas em vez de marcos relativos (ex.: '21/03/2027' em vez de apenas 'D-45') quando disponíveis nos trechos.\n"
+            "5. Cada afirmação relevante deve ser acompanhada de sua citação no formato: (Fonte: CODIGO vVERSAO, SEÇÃO.)\n"
+            "6. Inicie a resposta com o prefixo/rótulo correspondente ao perfil solicitado:\n"
+            "   - empregado: 'O que fazer: '\n"
+            "   - gestor: 'Para decidir: '\n"
+            "   - diretoria: 'Em resumo: '\n"
+            "   - financeiro: 'Valores e datas: '\n"
+            "   - juridico: 'Disposição normativa: '\n"
+            "   - rh: 'Regra vigente: '\n"
+            "   - geral: sem rótulo, resposta direta.\n"
+        )
+
+        trechos_formatados = "\n\n".join(
+            f"[{i+1}] Documento: {r.codigo} v{r.versao} | Seção: {r.secao_id} ({r.titulo})\nTrecho: {r.texto}"
+            for i, r in enumerate(resultados)
+        )
+        msg_usuario = (
+            f"Perfil do usuário: {perfil_key}\n"
+            f"Pergunta: {pergunta}\n\n"
+            f"Trechos recuperados do acervo:\n{trechos_formatados}"
+        )
+
+        texto_llm, modelo_usado, erro_llm = gerar_resposta_converse(prompt_sistema, msg_usuario)
+
+        # Degradação graciosa em caso de erro no Bedrock ou resposta vazia
+        if erro_llm or not texto_llm:
+            logger.warning(f"Bedrock indisponível ({erro_llm}); utilizando resposta extrativa.")
+            avisos_degradacao = list(avisos) + ["IA indisponível; resposta gerada por extração direta."]
+            return PerguntaResponse(
+                resposta_id=resposta_id,
+                resposta=resposta_extrativa,
+                consta=True,
+                citacoes=citacoes,
+                avisos=avisos_degradacao,
+                proxima_acao=proxima_acao,
+            )
+
+        # Validação pós-geração: toda citação da resposta precisa existir entre os trechos recuperados
+        codigos_mencionados = set(
+            re.findall(r"\b(?:NG|PX|PP|GU|FM|TB|FL|RG|CT|DV|CTR|NT)_\d+(?:-\d+)*\b", texto_llm)
+        )
+        codigos_recuperados = {r.codigo for r in resultados}
+        if codigos_mencionados - codigos_recuperados:
+            logger.warning(
+                f"Citação inventada descartada ({codigos_mencionados - codigos_recuperados}); caindo para extrativa."
+            )
+            avisos_degradacao = list(avisos) + [
+                "Citação não validada na resposta do modelo; resposta substituída por extração direta."
+            ]
+            return PerguntaResponse(
+                resposta_id=resposta_id,
+                resposta=resposta_extrativa,
+                consta=True,
+                citacoes=citacoes,
+                avisos=avisos_degradacao,
+                proxima_acao=proxima_acao,
+            )
+
+        # Se o modelo disser que não consta mesmo com evidência recuperada, cai para extrativa
+        if "não consta" in texto_llm.lower() or "não foram encontradas" in texto_llm.lower():
+            return PerguntaResponse(
+                resposta_id=resposta_id,
+                resposta=resposta_extrativa,
+                consta=True,
+                citacoes=citacoes,
+                avisos=avisos,
+                proxima_acao=proxima_acao,
+            )
+
+        # Inclui avisos de substituição se não estiverem explícitos na resposta do modelo
+        texto_final = texto_llm
+        if avisos:
+            for av in avisos:
+                if av not in texto_final:
+                    texto_final += f" Atenção: {'; '.join(avisos)}."
+                    break
 
         return PerguntaResponse(
             resposta_id=resposta_id,
-            resposta=resposta_texto,
+            resposta=texto_final,
             consta=True,
             citacoes=citacoes,
             avisos=avisos,

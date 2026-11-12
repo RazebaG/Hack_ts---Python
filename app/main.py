@@ -19,6 +19,7 @@ from app.avaliacoes import AvaliacoesRepository
 from app.routers.inteligencia import router as inteligencia_router
 from app.routers.radar import router as radar_router
 from app.codigo import decodificar_codigo
+from app.bedrock import get_ia_status
 
 app = FastAPI(
     title="Assistente do Arquivo Central de Normas - API",
@@ -52,10 +53,11 @@ avaliacoes_repo = AvaliacoesRepository()
 
 @app.get("/api/saude", response_model=SaudeResponse)
 def get_saude():
-    """Retorna o status da API e o total de documentos carregados."""
+    """Retorna o status da API, total de documentos e status do provedor de IA."""
     return SaudeResponse(
         status="ok",
         documentos=acervo.total(),
+        ia=get_ia_status(),
     )
 
 
