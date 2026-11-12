@@ -109,3 +109,118 @@ class AvaliacaoResumoResponse(BaseModel):
     uteis: int = Field(0, description="Total de avaliações marcadas como úteis")
     por_canal: dict[str, int] = Field(default_factory=dict, description="Contagem de avaliações por canal")
 
+
+# ==============================================================================
+# Modelos de Inteligência por Perspectiva (Issue #4, C15, C17, Adendo v0.1)
+# ==============================================================================
+
+class DestaqueItem(BaseModel):
+    titulo: str = Field(..., description="Título do destaque")
+    valor: Optional[str] = Field(None, description="Valor textual destacado (ex: R$ 18.250,00 ou 45 dias corridos)")
+    fonte: Fonte = Field(..., description="Fonte do acervo com seção e camada")
+    fonte_anterior: Optional[Fonte] = Field(None, description="Fonte da versão anterior substituída (Adendo v0.1 F)")
+    aviso: Optional[str] = Field(None, description="Aviso sobre versão substituída (ex: 'v2 (substituída) dizia 30 dias')")
+    tema: Optional[Tema] = Field(None, description="Tema derivado do catálogo (C17)")
+
+
+class ValorItem(BaseModel):
+    rotulo: str = Field(..., description="Rótulo do valor financeiro")
+    numero: float = Field(..., description="Valor numérico extraído")
+    unidade: str = Field("BRL", description="Unidade de medida: BRL, %, dias, etc.")
+    fonte: Fonte = Field(..., description="Fonte com código, versão, seção e camada")
+    tema: Optional[Tema] = Field(None, description="Tema do documento ou assunto (C17)")
+
+
+class PrazoItem(BaseModel):
+    data: Optional[str] = Field(None, description="Data ISO 8601 (YYYY-MM-DD) quando houver")
+    evento: str = Field(..., description="Descrição do prazo ou evento")
+    marco: Optional[str] = Field(None, description="Marco relativo (ex: D-45, D-35) conforme Adendo v0.1 B")
+    cenario: Optional[str] = Field(None, description="Cenário ou documento de exemplo (Adendo v0.1 B)")
+    fonte: Fonte = Field(..., description="Fonte da seção citada")
+    tema: Optional[Tema] = Field(None, description="Tema derivado (C17)")
+
+
+class ResponsavelItem(BaseModel):
+    papel: str = Field(..., description="Sigla ou denominação do responsável (GOC, GCO, DIRAF, GGC...)")
+    responsabilidade: str = Field(..., description="Descrição da atribuição ou obrigação")
+    obrigacao: Optional[str] = Field(None, description="Alias para responsabilidade / obrigação (RF09)")
+    fonte: Fonte = Field(..., description="Fonte com seção e camada")
+    tema: Optional[Tema] = Field(None, description="Tema do documento (C17)")
+
+
+class RiscoItem(BaseModel):
+    descricao: str = Field(..., description="Descrição do risco, penalidade ou conformidade")
+    fonte: Fonte = Field(..., description="Fonte do trecho citado")
+    tema: Optional[Tema] = Field(None, description="Tema derivado (C17)")
+
+
+class PerspectivaResumo(BaseModel):
+    id: str = Field(..., description="Identificador da perspectiva: juridico, financeiro, pessoas, gestao")
+    nome: str = Field(..., description="Nome exibido da perspectiva")
+
+
+class PerspectivaDetalhe(BaseModel):
+    id: str = Field(..., description="Identificador da perspectiva")
+    nome: str = Field(..., description="Nome da perspectiva")
+    destaques: List[DestaqueItem] = Field(default_factory=list, description="Lista de destaques principais")
+    valores: List[ValorItem] = Field(default_factory=list, description="Valores numéricos e limites")
+    prazos: List[PrazoItem] = Field(default_factory=list, description="Prazos e cronograma")
+    responsaveis: List[ResponsavelItem] = Field(default_factory=list, description="Matriz de responsáveis e obrigações")
+    riscos: List[RiscoItem] = Field(default_factory=list, description="Riscos e alertas normativos")
+
+
+class GrafoNo(BaseModel):
+    id: str = Field(..., description="Identificador do nó (codigo@versao ou codigo para ausentes)")
+    codigo: str = Field(..., description="Código do documento (ex: NG_111, NG_012)")
+    tipo: Optional[str] = Field(None, description="Sigla do tipo documental (NG, PX, CTR...)")
+    versao: Optional[str] = Field(None, description="Versão do documento (None se documento ausente no acervo)")
+    substituido: bool = Field(False, description="True se for versão substituída")
+    existe_no_acervo: bool = Field(True, description="True se o documento existe no acervo; False se citado mas ausente (Adendo v0.1 C)")
+    titulo: Optional[str] = Field(None, description="Título do documento")
+    camada: Optional[Camada] = Field(None, description="Camada derivada do catálogo (C15)")
+    tema: Optional[Tema] = Field(None, description="Tema e série do catálogo (C17)")
+
+
+class GrafoAresta(BaseModel):
+    de: str = Field(..., description="ID do nó de origem")
+    para: str = Field(..., description="ID do nó de destino")
+    tipo: str = Field(..., description="Tipo da relação: vinculado_a, referencia, substitui")
+
+
+class GrafoResponse(BaseModel):
+    nos: List[GrafoNo] = Field(default_factory=list, description="Nós do grafo de documentos")
+    arestas: List[GrafoAresta] = Field(default_factory=list, description="Arestas de interligação")
+
+
+class MudancaSecao(BaseModel):
+    secao: str = Field(..., description="Identificador da seção")
+    tipo: str = Field(..., description="Tipo de mudança: alterado, incluido, removido")
+    antes: Optional[str] = Field(None, description="Conteúdo da seção na versão 'de'")
+    depois: Optional[str] = Field(None, description="Conteúdo da seção na versão 'para'")
+
+
+class CompararResponse(BaseModel):
+    codigo: str = Field(..., description="Código do documento comparado")
+    de: str = Field(..., description="Versão de origem")
+    para: str = Field(..., description="Versão de destino")
+    mudancas: List[MudancaSecao] = Field(default_factory=list, description="Diferenças encontradas por seção")
+    resumo: List[str] = Field(default_factory=list, description="Frases curtas de resumo das mudanças")
+
+
+class RelatorioItem(BaseModel):
+    texto: str = Field(..., description="Texto do item do relatório")
+    fonte: Fonte = Field(..., description="Fonte comprobatória com camada")
+
+
+class RelatorioSecao(BaseModel):
+    titulo: str = Field(..., description="Título da seção do relatório")
+    itens: List[RelatorioItem] = Field(default_factory=list, description="Itens da seção")
+
+
+class RelatorioResponse(BaseModel):
+    titulo: str = Field(..., description="Título do relatório executivo")
+    gerado_em: str = Field(..., description="Timestamp ISO 8601 da geração")
+    perspectiva: Optional[str] = Field(None, description="Perspectiva de origem se aplicável")
+    codigo: Optional[str] = Field(None, description="Código do documento se aplicável")
+    secoes: List[RelatorioSecao] = Field(default_factory=list, description="Seções do relatório")
+
