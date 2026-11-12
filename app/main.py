@@ -11,11 +11,16 @@ from app.models import (
     AvaliacaoRequest,
     AvaliacaoResponse,
     AvaliacaoResumoResponse,
+    CodigoDecodificado,
 )
 from app.acervo import AcervoRepository, get_acervo
 from app.perguntar import PerguntarService
 from app.avaliacoes import AvaliacoesRepository
 from app.routers.inteligencia import router as inteligencia_router
+from app.routers.radar import router as radar_router
+from app.routers.simulador import router as simulador_router
+from app.codigo import decodificar_codigo
+from app.bedrock import get_ia_status
 
 app = FastAPI(
     title="Assistente do Arquivo Central de Normas - API",
@@ -37,8 +42,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Roteador de Inteligência (Issue #4)
+# Roteadores (Issues #4, #7 e #8)
 app.include_router(inteligencia_router)
+app.include_router(radar_router)
+app.include_router(simulador_router)
 
 # Inicialização dos repositórios e serviços em memória
 acervo = get_acervo()
@@ -48,10 +55,11 @@ avaliacoes_repo = AvaliacoesRepository()
 
 @app.get("/api/saude", response_model=SaudeResponse)
 def get_saude():
-    """Retorna o status da API e o total de documentos carregados."""
+    """Retorna o status da API, total de documentos e status do provedor de IA."""
     return SaudeResponse(
         status="ok",
         documentos=acervo.total(),
+        ia=get_ia_status(),
     )
 
 
@@ -85,6 +93,13 @@ def obter_documento(
 def get_estatisticas():
     """Retorna contadores consolidados do acervo por vigência, tipo e assunto."""
     return acervo.estatisticas()
+
+
+@app.get("/api/codigo/{codigo:path}", response_model=CodigoDecodificado)
+def decodificar_documento(codigo: str):
+    """Decodifica a estrutura de um código de documento conforme regras do catálogo (C15, C17, RF16)."""
+    return decodificar_codigo(codigo, acervo=acervo)
+
 
 
 @app.post("/api/perguntar", response_model=PerguntaResponse)
