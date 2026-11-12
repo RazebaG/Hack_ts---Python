@@ -5,13 +5,30 @@ from collections import Counter
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Set, Tuple
 
-from nltk.stem.snowball import PortugueseStemmer
+try:
+    from nltk.stem.snowball import PortugueseStemmer
+    stemmer = PortugueseStemmer()
+except ImportError:
+    class SimplePortugueseStemmer:
+        def stem(self, word: str) -> str:
+            w = word.lower()
+            for suf in (
+                "amentos", "imentos", "amento", "imento", "idades", "mente",
+                "acoes", "acao", "aram", "avam", "emos", "ando", "endo", "indo",
+                "adas", "ados", "ada", "ado", "idos", "ida", "ido", "iram",
+                "eza", "oso", "osa", "ar", "er", "ir", "as", "es", "os"
+            ):
+                if len(w) > len(suf) + 3 and w.endswith(suf):
+                    return w[:-len(suf)]
+            if w.endswith("s") and len(w) > 3:
+                return w[:-1]
+            return w
+
+    stemmer = SimplePortugueseStemmer()
 
 from app.acervo import AcervoRepository
 from app.models import Camada, Citacao, Secao
 from app.taxonomia import derivar_camada
-
-stemmer = PortugueseStemmer()
 
 STOPWORDS = {
     "a", "ao", "aos", "as", "ate", "com", "como", "da", "das", "de", "do", "dos",
