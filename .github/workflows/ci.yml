@@ -24,3 +24,11 @@ jobs:
       - name: Run tests
         run: |
           pytest -q
+
+      - name: Run smoke tests
+        run: |
+          make smoke
+
+      - name: Run evaluation (simulado)
+        run: |
+          python -m eval.rodar --simulado
