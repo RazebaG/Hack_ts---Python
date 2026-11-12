@@ -8,3 +8,7 @@ nltk>=3.8.0
 boto3>=1.34.0
 python-dotenv>=1.0.0
 
+python-multipart>=0.0.9
+pypdf>=4.0.0
+pillow>=10.0.0
+pytesseract>=0.3.10
