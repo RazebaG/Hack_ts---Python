@@ -16,6 +16,7 @@ from app.acervo import AcervoRepository, get_acervo
 from app.perguntar import PerguntarService
 from app.avaliacoes import AvaliacoesRepository
 from app.routers.inteligencia import router as inteligencia_router
+from app.routers.radar import router as radar_router
 
 app = FastAPI(
     title="Assistente do Arquivo Central de Normas - API",
@@ -37,8 +38,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Roteador de Inteligência (Issue #4)
+# Roteadores (Issues #4 e #7)
 app.include_router(inteligencia_router)
+app.include_router(radar_router)
 
 # Inicialização dos repositórios e serviços em memória
 acervo = get_acervo()

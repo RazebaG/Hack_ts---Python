@@ -49,6 +49,75 @@ Mudança de contrato = bloqueio comentado na issue e decisão do Lead.
 
 Todo item extraído carrega `fonte` (codigo, versao, secao, trecho). Extração por regras/regex sobre o texto + revisão em `data/curadoria/*.yaml` quando a regra falhar; nunca valor sem fonte.
 
+## Radar de contradições (issue backend #7, Adendo v0.2)
+
+### GET /api/radar?perspectiva=juridico|financeiro|pessoas|gestao (opcional)
+Retorna divergências entre versões (vigente × substituída) e referências a documentos ausentes no acervo, com fontes comprobatórias (`fonte.camada`) e tema (`tema`).
+
+```json
+{
+  "gerado_em": "2026-11-12T15:00:00-03:00",
+  "resumo": {
+    "divergente": 2,
+    "atencao": 1
+  },
+  "itens": [
+    {
+      "id": "versao-NG_111-antecedencia",
+      "tipo": "versao_substituida",
+      "status": "divergente",
+      "severidade": "alta",
+      "titulo": "Antecedência de férias: v2 dizia 30 dias, v3 exige 45",
+      "explicacao": "A versão vigente prevalece; a 2.0.0 foi substituída.",
+      "perspectivas": ["pessoas"],
+      "codigo_ausente": null,
+      "fontes": [
+        {
+          "codigo": "NG_111",
+          "versao": "3.0.0",
+          "secao": "4.3.1",
+          "trecho": "A solicitação é formal e feita no Portal Raiz (FM_1111-001) com antecedência mínima de 45 dias corridos do início de gozo.",
+          "camada": {
+            "sigla": "NG",
+            "tipo_nome": "Norma Geral",
+            "grupo": "Normativo",
+            "subordinado_a": null
+          }
+        },
+        {
+          "codigo": "NG_111",
+          "versao": "2.0.0",
+          "secao": "2.3",
+          "trecho": "A solicitação deve ser feita com antecedência mínima de 30 dias.",
+          "camada": {
+            "sigla": "NG",
+            "tipo_nome": "Norma Geral",
+            "grupo": "Normativo",
+            "subordinado_a": null
+          }
+        }
+      ],
+      "tema": {
+        "assunto": "ferias",
+        "serie": 1,
+        "serie_nome": "Gente e Cultura",
+        "confirmado_por": "regra",
+        "observacao": null
+      }
+    }
+  ]
+}
+```
+
+Regras P0 (determinísticas, sem IA):
+- `versao_substituida` (`status: "divergente"`, 2 fontes: vigente e substituída):
+  - `NG_111` 2.0.0 §2.3 × 3.0.0 §4.3.1 (30 → 45 dias corridos).
+  - `FM_1111-001` 1.0.0 §1 × 2.0.0 §Bloco A (30 dias / envio ao gerente → Portal Raiz).
+- `referencia_ausente` (`status: "atencao"`, ≥ 1 fonte):
+  - `NG_012` citada pela `NT_2026-018` §10 (alçadas decisórias da DIRAF) e não presente no acervo (`codigo_ausente: "NG_012"`).
+- Filtro opcional `?perspectiva=`: filtra os itens pela perspectiva indicada (`pessoas`, `financeiro`, `juridico`, `gestao`). Perspectiva inexistente retorna 404 (Adendo v0.1 D).
+- Todo `fonte.secao` ∈ `secoes[].id` do respectivo documento/versão no acervo.
+
 ## Adendo v0.1 ao CONTRATO-API.md (Lead aprovou 12/11/2026)
 
 Aplicar nos dois repos (`RazebaG/Hack_ts---Python` e `RazebaG/Hacka_ts-React`) no mesmo commit lógico, **antes** de implementar BE #4 e de fechar mocks FE #1/#3. Aditivo; não quebra v0.
