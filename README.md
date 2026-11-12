@@ -73,6 +73,19 @@ npm test -- --run   # Executa os testes unitários e de integração do frontend
 
 ---
 
+## Canais (Slack) · issue #9
+
+A camada comum fica em `app/canais/`. `cartao.py` monta o cartão neutro a partir da resposta da API: conclusão, até 3 citações com selo `SIGLA · Grupo`, avisos, próxima ação, link do painel e botões Útil/Não útil. `slack.py` só traduz esse cartão para Block Kit. O bot consome apenas a API (`API_URL`).
+
+1. Crie o app no workspace de teste a partir de `app/canais/slack_manifest.yaml` (Socket Mode, comando `/acervo`).
+2. Gere um App-Level Token com `connections:write` e instale o app no workspace.
+3. No `.env`, preencha `SLACK_BOT_TOKEN`, `SLACK_APP_TOKEN`, `API_URL` e `PAINEL_URL`. O `.env` não vai para o repositório.
+4. Suba a API (`uvicorn app.main:app`) e o bot (`python -m app.canais.slack`).
+
+Uso: `/acervo <pergunta>` ou `/acervo radar [perspectiva]`. Se a perspectiva não existir, o bot mostra a mensagem de erro da API.
+
+---
+
 ## Endpoints da API e Conformidade com o Frontend
 
 Todos os endpoints operam em JSON UTF-8 com suporte a CORS para `http://localhost:5173`.
