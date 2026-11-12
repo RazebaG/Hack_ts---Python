@@ -14,9 +14,15 @@ API_URL_PADRAO = "http://localhost:8000"
 class ErroAPI(Exception):
     """A API não respondeu ou respondeu com erro."""
 
-    def __init__(self, mensagem: str, status: Optional[int] = None):
+    def __init__(self, mensagem: str, status: Optional[int] = None, detalhe: Optional[str] = None):
         super().__init__(mensagem)
         self.status = status
+        self.detalhe = detalhe
+
+    @property
+    def recusado(self) -> bool:
+        """4xx: a API está no ar, mas recusou o pedido (ex.: perspectiva inválida)."""
+        return self.status is not None and 400 <= self.status < 500
 
 
 class ClienteAPI:
@@ -35,7 +41,9 @@ class ClienteAPI:
                 detalhe = r.json().get("detail", r.text)
             except ValueError:
                 detalhe = r.text
-            raise ErroAPI(f"{metodo} {caminho} → {r.status_code}: {detalhe}", status=r.status_code)
+            if not isinstance(detalhe, str):
+                detalhe = str(detalhe)
+            raise ErroAPI(f"{metodo} {caminho} → {r.status_code}: {detalhe}", status=r.status_code, detalhe=detalhe)
         return r.json()
 
     def perguntar(self, pergunta: str, perfil: Optional[str] = None) -> Dict[str, Any]:

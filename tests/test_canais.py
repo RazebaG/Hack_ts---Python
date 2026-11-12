@@ -118,9 +118,7 @@ def test_paridade_mesma_pergunta_mesmo_cartao(servico):
     sem_id = lambda c: (c.conclusao, c.consta, c.citacoes, c.avisos, c.proxima_acao, c.link_painel,
                         [(x.acao, x.rotulo, x.util) for x in c.botoes])
     assert sem_id(a) == sem_id(b)
-    # resposta_id fixo → cartões idênticos, independente do canal que vai renderizar
-    resposta = TestClient(app).post("/api/perguntar", json={"pergunta": PERGUNTA_CONSTA}).json()
-    assert montar_cartao(resposta, PAINEL) == montar_cartao(dict(resposta), PAINEL)
+    # Paridade Slack × Teams só pode ser testada de verdade com o segundo adaptador (#14).
 
 
 def test_radar_tres_mais_severos():
@@ -221,6 +219,44 @@ def test_slack_radar_chama_api_com_tema():
     assert chamadas[0].url.params["perspectiva"] == "pessoas"
     texto = _textos(sf.respostas[0]["blocks"])
     assert "NG_111 mudou" in texto and "4.3.1" in texto
+
+
+def _servico_com_resposta(status: int, corpo: Dict[str, Any]) -> ServicoCanais:
+    transporte = httpx.MockTransport(lambda r: httpx.Response(status, json=corpo))
+    return ServicoCanais(ClienteAPI(http=httpx.Client(transport=transporte, base_url="http://teste")), "")
+
+
+def test_slack_radar_perspectiva_invalida_mostra_detalhe_da_api(servico):
+    """404 da API real para perspectiva inválida não vira "API fora"."""
+    detalhe = TestClient(app).get("/api/radar", params={"perspectiva": "férias"}).json()["detail"]
+    sf = SlackFalso()
+    slack.tratar_comando(servico, sf.ack, sf.respond, {"text": "radar férias"})
+    assert sf.respostas[0]["text"] == slack.MSG_RECUSADO.format(detalhe=slack._esc(detalhe))
+    assert sf.respostas[0]["text"] != slack.MSG_API_FORA
+
+
+def test_slack_avaliacao_recusada_mostra_detalhe_da_api():
+    servico = _servico_com_resposta(422, {"detail": "resposta_id desconhecido"})
+    sf = SlackFalso()
+    body = {"actions": [{"action_id": "avaliacao_util", "value": "x"}]}
+    slack.tratar_avaliacao(servico, sf.ack, sf.respond, body)
+    assert sf.respostas[0]["text"] == slack.MSG_RECUSADO.format(detalhe="resposta_id desconhecido")
+
+
+def test_slack_erro_5xx_continua_api_fora():
+    sf = SlackFalso()
+    slack.tratar_comando(_servico_com_resposta(500, {"detail": "falha"}), sf.ack, sf.respond, {"text": "x"})
+    assert sf.respostas[0]["text"] == slack.MSG_API_FORA
+
+
+def test_slack_limite_de_blocos_preserva_botoes_de_cada_cartao():
+    citacao = {"codigo": "NG_1", "versao": "1", "secao": "1", "trecho": "t"}
+    cartao = montar_cartao({"resposta_id": "r", "resposta": "x", "consta": True, "citacoes": [citacao] * 3}, PAINEL)
+    blocos = slack.renderizar([cartao] * 20)["blocks"]
+    assert len(blocos) <= slack.LIMITE_BLOCOS
+    assert blocos[-1]["type"] == "actions"
+    # cada cartão incluído está inteiro: um bloco de botões por cartão
+    assert sum(b["type"] == "actions" for b in blocos) == sum(b["type"] == "divider" for b in blocos) + 1
 
 
 def test_slack_api_fora_responde_mensagem_clara():

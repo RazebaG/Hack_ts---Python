@@ -22,7 +22,7 @@ class Comando:
 
 
 def interpretar(texto: Optional[str]) -> Comando:
-    """`radar [tema]` → radar; qualquer outro texto → pergunta."""
+    """`radar [perspectiva]` → radar; qualquer outro texto → pergunta."""
     texto = (texto or "").strip()
     if not texto:
         return Comando("vazio")
@@ -48,8 +48,8 @@ class ServicoCanais:
     def perguntar(self, pergunta: str, perfil: Optional[str] = None) -> Cartao:
         return montar_cartao(self.api.perguntar(pergunta, perfil), self.painel_url)
 
-    def radar(self, tema: Optional[str] = None) -> List[Cartao]:
-        return montar_cartoes_radar(self.api.radar(tema or None), self.painel_url)
+    def radar(self, perspectiva: Optional[str] = None) -> List[Cartao]:
+        return montar_cartoes_radar(self.api.radar(perspectiva or None), self.painel_url)
 
     def receber(self, texto: Optional[str], perfil: Optional[str] = None) -> List[Cartao]:
         """Ponto de entrada único dos canais. Levanta `ErroAPI` se a API falhar."""

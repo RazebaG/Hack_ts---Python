@@ -19,6 +19,7 @@ from app.avaliacoes import AvaliacoesRepository
 from app.routers.inteligencia import router as inteligencia_router
 from app.routers.radar import router as radar_router
 from app.routers.simulador import router as simulador_router
+from app.routers.lotes import router as lotes_router, servico as lotes_servico
 from app.codigo import decodificar_codigo
 from app.bedrock import get_ia_status
 
@@ -42,15 +43,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Roteadores (Issues #4, #7 e #8)
+# Roteadores (Issues #4, #7, #8 e #10)
 app.include_router(inteligencia_router)
 app.include_router(radar_router)
 app.include_router(simulador_router)
+app.include_router(lotes_router)
 
 # Inicialização dos repositórios e serviços em memória
 acervo = get_acervo()
 perguntar_service = PerguntarService(acervo)
 avaliacoes_repo = AvaliacoesRepository()
+
+# Documento publicado por lote entra no índice híbrido de /api/perguntar
+# (BM25 + embeddings das seções novas). O radar lê o acervo a cada consulta.
+lotes_servico.registrar_ao_publicar(perguntar_service.buscador.reindexar)
 
 
 @app.get("/api/saude", response_model=SaudeResponse)

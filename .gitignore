@@ -8,4 +8,4 @@ data/avaliacoes.jsonl
 .env
 data/cache/
 
-.env
+data/uploads/

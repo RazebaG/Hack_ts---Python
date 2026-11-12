@@ -192,6 +192,38 @@ class BuscadorLexico:
         except Exception as e:
             logger.warning(f"Falha ao gerar índice denso ({type(e).__name__}); operando em BM25 puro.")
 
+    @staticmethod
+    def _chave_densa(s: "SectionItem") -> str:
+        return f"{s.codigo}@{s.versao}#{s.secao_id}"
+
+    def reindexar(self) -> None:
+        """Reconstrói o índice após mudança no acervo (ex.: publicação de lote, issue #10).
+
+        Refaz o BM25 e, com o provedor Bedrock ativo, gera embeddings só das seções
+        que ainda não têm vetor. Vetores de seções que saíram do acervo são
+        descartados. Os vetores novos ficam em memória (o cache em disco guarda só
+        o acervo base). Se a geração falhar, as seções novas seguem só no BM25.
+        """
+        self._construir_indice()
+        if not self.dense_embeddings:
+            return
+        chaves = {self._chave_densa(s) for s in self.sections}
+        for chave in [k for k in self.dense_embeddings if k not in chaves]:
+            del self.dense_embeddings[chave]
+        faltando = [s for s in self.sections if self._chave_densa(s) not in self.dense_embeddings]
+        if not faltando or get_llm_provider() != "bedrock":
+            return
+        try:
+            embs = gerar_embeddings(
+                [f"{s.codigo} {s.titulo} {s.secao_id}: {s.texto[:300]}" for s in faltando],
+                input_type="search_document",
+            )
+            if embs and len(embs) == len(faltando):
+                for s, vec in zip(faltando, embs):
+                    self.dense_embeddings[self._chave_densa(s)] = vec
+        except Exception as e:
+            logger.warning(f"Falha ao gerar embeddings das seções novas ({type(e).__name__}); seguem só no BM25.")
+
     def _construir_indice(self) -> None:
         self.sections.clear()
         self.corpus_tokens.clear()
