@@ -74,12 +74,15 @@ def test_px_1130_001_vinculado_a_ng_1130():
 
 
 def test_ctr_2026_012_vigencia():
-    """CTR_2026-012 vigência 30/11/2026 a 29/04/2027."""
+    """CTR_2026-012 vigência 30/11/2026 a 29/04/2027 e seções em Title Case."""
     response = client.get("/api/documentos/CTR_2026-012")
     assert response.status_code == 200
     data = response.json()
     assert data["codigo"] == "CTR_2026-012"
     assert data["vigencia"] == "30/11/2026 a 29/04/2027"
+    secao_ids = [s["id"] for s in data["secoes"]]
+    assert "Cláusula Primeira" in secao_ids
+    assert "Cláusula Sétima" in secao_ids
 
 
 def test_cada_documento_tem_ao_menos_uma_secao():

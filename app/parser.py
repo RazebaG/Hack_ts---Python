@@ -154,7 +154,7 @@ def parse_sections(body_text: str, default_title: str) -> List[Secao]:
             curr_text_lines = []
 
             if m.group(1):  # CLÁUSULA ...
-                curr_id = m.group(1).strip()
+                curr_id = m.group(1).strip().title()
                 after = m.group(2).strip()
                 if ". " in after:
                     tit, rest = after.split(". ", 1)
