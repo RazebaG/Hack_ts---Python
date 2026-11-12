@@ -332,3 +332,141 @@ def test_arquivos_salvos_em_uploads(tmp_path):
     r = client.post("/api/lotes", files=[_md("NT_2026-099__TESTE_FICTICIO.md")])
     salvos = list((tmp_path / "uploads" / r.json()["id"]).iterdir())
     assert len(salvos) == 1 and salvos[0].name.endswith("NT_2026-099__TESTE_FICTICIO.md")
+
+
+# --- Correções do QA da PR #31 ------------------------------------------------
+
+def _md_inline(nome: str, codigo: str, vinculado: str, corpo: str):
+    """Markdown fictício montado no teste (nenhum dado do acervo real)."""
+    texto = f"""Documento: Norma
+Título: Norma Fictícia de Teste {codigo}
+Sigla e Número: {codigo}
+Versão: 1.0.0
+Fase: Vigente
+Vinculado a: {vinculado}
+
+DOCUMENTO SINTÉTICO. FIXTURE DE TESTE (FICTÍCIA).
+
+1. Objetivo
+{corpo}
+"""
+    return ("arquivos", (nome, texto.encode("utf-8"), "text/markdown"))
+
+
+def test_publicacao_atualiza_embeddings_da_busca_hibrida(monkeypatch):
+    from app import recuperacao
+
+    buscador = perguntar_service.buscador
+    chave = buscador._chave_densa
+    # Simula o índice denso já carregado do cache (provedor Bedrock), sem rede.
+    base = {chave(s): [1.0, 0.0] for s in buscador.sections}
+    monkeypatch.setattr(buscador, "dense_embeddings", dict(base))
+    chamadas = []
+
+    def stub_embeddings(textos, input_type=None):
+        chamadas.append(list(textos))
+        return [[0.0, 1.0] for _ in textos]
+
+    monkeypatch.setattr(recuperacao, "get_llm_provider", lambda: "bedrock")
+    monkeypatch.setattr(recuperacao, "gerar_embeddings", stub_embeddings)
+
+    lote = client.post("/api/lotes", files=[_md("PX_1111-002__TESTE_FICTICIO.md")]).json()
+    assert client.post(f"/api/lotes/{lote['id']}/publicar").json()["resultados"][0]["publicado"] is True
+
+    novas = [chave(s) for s in buscador.sections if s.codigo == "PX_1111-002"]
+    assert novas, "seções do publicado entram no BM25"
+    assert all(k in buscador.dense_embeddings for k in novas), "e também no índice denso"
+    # Só as seções novas são enviadas ao provedor; as do acervo base reaproveitam o vetor.
+    assert len(chamadas) == 1 and len(chamadas[0]) == len(novas)
+    assert all(buscador.dense_embeddings[k] == v for k, v in base.items())
+
+
+def test_publicacao_com_falha_de_embedding_segue_no_bm25(monkeypatch):
+    from app import recuperacao
+
+    buscador = perguntar_service.buscador
+    monkeypatch.setattr(buscador, "dense_embeddings", {buscador._chave_densa(s): [1.0] for s in buscador.sections})
+    monkeypatch.setattr(recuperacao, "get_llm_provider", lambda: "bedrock")
+
+    def falha(*a, **k):
+        raise RuntimeError("sem rede")
+
+    monkeypatch.setattr(recuperacao, "gerar_embeddings", falha)
+    lote = client.post("/api/lotes", files=[_md("PX_1111-002__TESTE_FICTICIO.md")]).json()
+    assert client.post(f"/api/lotes/{lote['id']}/publicar").json()["resultados"][0]["publicado"] is True
+    assert any(s.codigo == "PX_1111-002" for s in buscador.sections)
+
+
+def test_radar_enxerga_documento_publicado():
+    antes = client.get("/api/radar").json()
+    assert "NG_012" in [i.get("codigo_ausente") for i in antes["itens"]]
+
+    lote = client.post(
+        "/api/lotes",
+        files=[
+            _md_inline("NG_012.md", "NG_012", "CTR_2026-012",
+                       "Definir alçadas fictícias de aprovação usadas apenas em testes."),
+            _md_inline("PX_9999-001.md", "PX_9999-001", "NG_999",
+                       "Procedimento fictício que cita a NG_999, ausente do acervo."),
+        ],
+    ).json()
+    for arq in lote["arquivos"]:
+        if arq["estado"] == "sem_tema":
+            client.patch(f"/api/lotes/{lote['id']}/arquivos/{arq['id']}", json={"assunto": "locacao", "serie": 3})
+    res = client.post(f"/api/lotes/{lote['id']}/publicar").json()["resultados"]
+    assert all(r["publicado"] for r in res), res
+
+    depois = client.get("/api/radar").json()
+    ausentes = {i.get("codigo_ausente"): i for i in depois["itens"]}
+    # A referência P0 some quando o documento passa a existir no acervo
+    assert "NG_012" not in ausentes
+    # E o publicado que cita um documento ausente vira item, com fonte nele próprio
+    item = ausentes["NG_999"]
+    assert item["tipo"] == "referencia_ausente"
+    assert item["fontes"][0]["codigo"] == "PX_9999-001"
+    assert item["fontes"][0]["versao"] == "1.0.0"
+
+
+def test_sem_codigo_com_tema_fica_em_revisar_ate_ter_codigo():
+    lote = client.post("/api/lotes", files=[_md("SEM_CODIGO__TESTE_FICTICIO.md")]).json()
+    arq = lote["arquivos"][0]
+    url = f"/api/lotes/{lote['id']}/arquivos/{arq['id']}"
+
+    p = client.patch(url, json={"assunto": "locacao", "serie": 3})
+    assert p.status_code == 200
+    assert p.json()["estado"] == "revisar"
+    resumo = client.get(f"/api/lotes/{lote['id']}").json()["resumo"]
+    assert resumo["prontos"] == 0
+
+    pub = client.post(f"/api/lotes/{lote['id']}/publicar").json()["resultados"][0]
+    assert pub["publicado"] is False
+    assert "sem código" in pub["motivo"]
+
+    texto = (FIXTURES / "SEM_CODIGO__TESTE_FICTICIO.md").read_text(encoding="utf-8").replace(
+        "Título: Rascunho fictício sem código",
+        "Título: Rascunho fictício sem código\nSigla e Número: NT_2026-098\nVersão: 1.0.0",
+    )
+    p2 = client.patch(url, json={"texto": texto})
+    assert p2.json()["estado"] == "classificado"
+    assert client.get(f"/api/lotes/{lote['id']}").json()["resumo"]["prontos"] == 1
+    pub2 = client.post(f"/api/lotes/{lote['id']}/publicar").json()["resultados"][0]
+    assert pub2["publicado"] is True
+    doc = client.get("/api/documentos/NT_2026-098").json()
+    assert doc["tema"]["confirmado_por"] == "pessoa"
+    assert doc["tema"]["assunto"] == "locacao"
+
+
+def test_mensagem_415_sem_duplicacao():
+    r = client.post("/api/lotes", files=[("arquivos", ("falso.png", b"isto nao e png", "image/png"))]).json()
+    msg = r["arquivos"][0]["erro"]["mensagem"]
+    assert msg.count("Envie") == 1
+    assert "tipo não aceito" not in msg
+
+
+def test_rotas_de_lote_sao_sincronas():
+    """Leitura de PDF e Bedrock são síncronas: as rotas rodam no threadpool, não no event loop."""
+    import inspect
+    from app.routers import lotes
+
+    for rota in lotes.router.routes:
+        assert not inspect.iscoroutinefunction(rota.endpoint), rota.path

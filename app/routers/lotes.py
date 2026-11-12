@@ -26,12 +26,12 @@ class PublicarRequest(BaseModel):
     arquivos: Optional[List[str]] = Field(None, description="IDs dos arquivos a publicar; vazio = todos os prontos")
 
 
-async def _ler_limitado(arquivo: UploadFile) -> bytes:
+def _ler_limitado(arquivo: UploadFile) -> bytes:
     """Lê no máximo 10 MB + 1 byte: o excedente basta para marcar o erro de tamanho."""
     partes = []
     lido = 0
     while lido <= MAX_BYTES_ARQUIVO:
-        bloco = await arquivo.read(_BLOCO)
+        bloco = arquivo.file.read(_BLOCO)
         if not bloco:
             break
         partes.append(bloco)
@@ -47,9 +47,13 @@ def _lote_ou_404(lote_id: str):
 
 
 @router.post("", status_code=201)
-async def criar_lote(arquivos: List[UploadFile] = File(..., description="Arquivos .md, .pdf, .jpg ou .png")):
-    """Envia 1 ou mais arquivos. Cada arquivo é validado, lido e classificado por tema."""
-    conteudos = [(a.filename or "", await _ler_limitado(a)) for a in arquivos]
+def criar_lote(arquivos: List[UploadFile] = File(..., description="Arquivos .md, .pdf, .jpg ou .png")):
+    """Envia 1 ou mais arquivos. Cada arquivo é validado, lido e classificado por tema.
+
+    Rota síncrona (def): o FastAPI a executa no threadpool, então a leitura de PDF
+    e a chamada ao Bedrock não bloqueiam o event loop.
+    """
+    conteudos = [(a.filename or "", _ler_limitado(a)) for a in arquivos]
     try:
         lote = servico.criar_lote(conteudos)
     except LoteInvalido as exc:

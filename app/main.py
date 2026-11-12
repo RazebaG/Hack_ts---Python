@@ -11,12 +11,17 @@ from app.models import (
     AvaliacaoRequest,
     AvaliacaoResponse,
     AvaliacaoResumoResponse,
+    CodigoDecodificado,
 )
 from app.acervo import AcervoRepository, get_acervo
 from app.perguntar import PerguntarService
 from app.avaliacoes import AvaliacoesRepository
 from app.routers.inteligencia import router as inteligencia_router
+from app.routers.radar import router as radar_router
+from app.routers.simulador import router as simulador_router
 from app.routers.lotes import router as lotes_router, servico as lotes_servico
+from app.codigo import decodificar_codigo
+from app.bedrock import get_ia_status
 
 app = FastAPI(
     title="Assistente do Arquivo Central de Normas - API",
@@ -38,9 +43,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Roteador de Inteligência (Issue #4)
+# Roteadores (Issues #4, #7, #8 e #10)
 app.include_router(inteligencia_router)
-# Envio em lote e digitalização (Issue #10)
+app.include_router(radar_router)
+app.include_router(simulador_router)
 app.include_router(lotes_router)
 
 # Inicialização dos repositórios e serviços em memória
@@ -48,16 +54,18 @@ acervo = get_acervo()
 perguntar_service = PerguntarService(acervo)
 avaliacoes_repo = AvaliacoesRepository()
 
-# Documento publicado por lote entra no índice de /api/perguntar
-lotes_servico.registrar_ao_publicar(lambda: perguntar_service.buscador._construir_indice())
+# Documento publicado por lote entra no índice híbrido de /api/perguntar
+# (BM25 + embeddings das seções novas). O radar lê o acervo a cada consulta.
+lotes_servico.registrar_ao_publicar(perguntar_service.buscador.reindexar)
 
 
 @app.get("/api/saude", response_model=SaudeResponse)
 def get_saude():
-    """Retorna o status da API e o total de documentos carregados."""
+    """Retorna o status da API, total de documentos e status do provedor de IA."""
     return SaudeResponse(
         status="ok",
         documentos=acervo.total(),
+        ia=get_ia_status(),
     )
 
 
@@ -91,6 +99,13 @@ def obter_documento(
 def get_estatisticas():
     """Retorna contadores consolidados do acervo por vigência, tipo e assunto."""
     return acervo.estatisticas()
+
+
+@app.get("/api/codigo/{codigo:path}", response_model=CodigoDecodificado)
+def decodificar_documento(codigo: str):
+    """Decodifica a estrutura de um código de documento conforme regras do catálogo (C15, C17, RF16)."""
+    return decodificar_codigo(codigo, acervo=acervo)
+
 
 
 @app.post("/api/perguntar", response_model=PerguntaResponse)

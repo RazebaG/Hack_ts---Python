@@ -43,6 +43,7 @@ ASSINATURAS = {
 }
 
 MSG_TIPO = "tipo não aceito. Envie PDF, Markdown, JPG ou PNG."
+MSG_CONTEUDO_INVALIDO = "Envie PDF, Markdown, JPG ou PNG válido."
 MSG_SEM_TEMA = "Sem tema: escolha um."
 MSG_FOTO_ILEGIVEL = "não deu para ler esta foto. Tente com mais luz e a página inteira no quadro."
 
@@ -176,10 +177,10 @@ def validar_tipo(nome: str, conteudo: bytes) -> Tuple[Optional[str], Optional[Tu
         return ext, (413, "arquivo maior que 10 MB. Divida o documento ou reduza a imagem.")
     assinaturas = ASSINATURAS.get(ext)
     if assinaturas and not any(conteudo.startswith(a) for a in assinaturas):
-        return ext, (415, f"o conteúdo não corresponde a um arquivo {ext}. {MSG_TIPO}")
+        return ext, (415, f"o conteúdo não corresponde a um arquivo {ext}. {MSG_CONTEUDO_INVALIDO}")
     if ext == ".md":
         if b"\x00" in conteudo:
-            return ext, (415, f"o conteúdo não é texto Markdown. {MSG_TIPO}")
+            return ext, (415, f"o conteúdo não é texto Markdown. {MSG_CONTEUDO_INVALIDO}")
         try:
             conteudo.decode("utf-8")
         except UnicodeDecodeError:
@@ -406,7 +407,17 @@ class LotesService:
         if arq.tema_sugerido is None:
             arq.avisos.append("cabeçalho sem código (Sigla e Número).")
         arq.erro = None
-        arq.estado = "classificado" if (arq.tema_sugerido or arq.tema_escolhido) else "sem_tema"
+        arq.estado = self._estado_apos_tema(arq)
+
+    @staticmethod
+    def _estado_apos_tema(arq: ArquivoLote) -> str:
+        """sem_tema → falta tema; revisar → tem tema, mas o texto ainda não tem código
+        (a publicação seria recusada); classificado → pronto para publicar."""
+        if not (arq.tema_sugerido or arq.tema_escolhido):
+            return "sem_tema"
+        if not (arq.documento and arq.documento.codigo):
+            return "revisar"
+        return "classificado"
 
     # -- consulta e edição ----------------------------------------------
     def obter(self, lote_id: str) -> Optional[Lote]:
@@ -445,8 +456,8 @@ class LotesService:
             if arq.tipo == "foto":
                 arq.linhas = [{"numero": i, "texto": l, "incerta": False} for i, l in enumerate(texto.splitlines(), 1)]
             self._classificar(arq, texto, origem="digitalizado" if arq.tipo == "foto" else "upload")
-        elif arq.estado == "sem_tema" and arq.tema_escolhido:
-            arq.estado = "classificado"
+        elif arq.estado in ("sem_tema", "revisar") and arq.tema_escolhido and arq.tipo != "foto":
+            arq.estado = self._estado_apos_tema(arq)
 
         if revisado is not None and arq.tipo == "foto":
             arq.revisado = bool(revisado)
@@ -457,7 +468,7 @@ class LotesService:
         if arq.tipo == "foto" and arq.estado in ("classificado", "sem_tema") and not arq.revisado:
             arq.estado = "revisar"
         elif arq.tipo == "foto" and arq.estado == "revisar" and arq.revisado:
-            arq.estado = "classificado" if (arq.tema_sugerido or arq.tema_escolhido) else "sem_tema"
+            arq.estado = self._estado_apos_tema(arq)
         return arq
 
     # -- publicação -----------------------------------------------------

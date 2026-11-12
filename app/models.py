@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional, List, Union
 from pydantic import BaseModel, Field
 
 
@@ -72,9 +72,16 @@ class DocumentoDetalhe(DocumentoResumo):
     secoes: List[Secao] = Field(default_factory=list, description="Lista de seções do documento")
 
 
+class IASaude(BaseModel):
+    provedor: str = Field(..., description="Provedor de IA configurado: bedrock ou nenhum")
+    modelo: Optional[str] = Field(None, description="Modelo principal configurado")
+    disponivel: bool = Field(..., description="True se a IA está disponível e operacional")
+
+
 class SaudeResponse(BaseModel):
     status: str = "ok"
     documentos: int
+    ia: Optional[IASaude] = None
 
 
 class PerguntaRequest(BaseModel):
@@ -224,4 +231,100 @@ class RelatorioResponse(BaseModel):
     perspectiva: Optional[str] = Field(None, description="Perspectiva de origem se aplicável")
     codigo: Optional[str] = Field(None, description="Código do documento se aplicável")
     secoes: List[RelatorioSecao] = Field(default_factory=list, description="Seções do relatório")
+
+
+# ==============================================================================
+# Modelos do Radar de Contradições (Issue #7, Adendo v0.2, C15, C17)
+# ==============================================================================
+
+class RadarResumo(BaseModel):
+    divergente: int = Field(0, description="Total de itens divergentes (versões substituídas / conflitos)")
+    atencao: int = Field(0, description="Total de itens de atenção (referências ausentes)")
+
+
+class RadarItem(BaseModel):
+    id: str = Field(..., description="Identificador único do item no radar")
+    tipo: str = Field(..., description="Tipo do item: versao_substituida ou referencia_ausente")
+    status: str = Field(..., description="Status do item: divergente ou atencao")
+    severidade: str = Field("media", description="Severidade do item: alta, media ou baixa")
+    titulo: str = Field(..., description="Título descritivo da contradição ou ausência")
+    explicacao: str = Field(..., description="Explicação da divergência ou regra aplicável")
+    perspectivas: List[str] = Field(default_factory=list, description="Lista de perspectivas afetadas (pessoas, juridico, financeiro, gestao)")
+    codigo_ausente: Optional[str] = Field(None, description="Código do documento ausente no acervo quando aplicável")
+    fontes: List[Fonte] = Field(default_factory=list, description="Lista de fontes que fundamentam o item com camada")
+    tema: Optional[Tema] = Field(None, description="Tema derivado do catálogo (C17)")
+
+
+class RadarResponse(BaseModel):
+    gerado_em: str = Field(..., description="Timestamp ISO 8601 da geração")
+    resumo: RadarResumo = Field(..., description="Contagem consolidada por status")
+    itens: List[RadarItem] = Field(default_factory=list, description="Lista de itens identificados pelo radar")
+
+
+# ==============================================================================
+# Modelos do Decodificador de Códigos (Issue #3, C15, C17, RF16)
+# ==============================================================================
+
+class CodigoDecodificado(BaseModel):
+    codigo: str = Field(..., description="Código do documento analisado")
+    tipo: Optional[str] = Field(None, description="Sigla do tipo documental, ex: PX, NG, CTR, CT")
+    tipo_nome: Optional[str] = Field(None, description="Nome por extenso do tipo documental")
+    vinculado_a: Optional[str] = Field(None, description="Código do documento ao qual este se vincula")
+    serie: Optional[str] = Field(None, description="Número da série do catálogo §5 em texto (ex: '1', '11') ou null")
+    serie_nome: Optional[str] = Field(None, description="Nome por extenso da série no catálogo §5")
+    vigencia_regra: Optional[str] = Field(None, description="Regra de vigência do tipo documental segundo o catálogo")
+    existe_no_acervo: bool = Field(..., description="True se o documento existe no acervo; False caso contrário")
+    observacao: Optional[str] = Field(None, description="Observações sobre ambiguidade, ausência de série ou lacunas")
+    camada: Optional[Camada] = Field(None, description="Camada da norma derivada do catálogo")
+    tema: Optional[Tema] = Field(None, description="Tema e série derivados do catálogo")
+
+
+# ==============================================================================
+# Modelos do Simulador "E se?" (Issue #8, Adendo v0.2)
+# ==============================================================================
+
+class RegraSimulacao(BaseModel):
+    id: str = Field(..., description="Identificador único da regra, ex: ferias_antecedencia_dias")
+    rotulo: str = Field(..., description="Descrição legível da regra")
+    valor: Union[int, float] = Field(..., description="Valor atual vigente da regra")
+    unidade: str = Field(..., description="Unidade de medida: dias, BRL, %")
+    fonte: Fonte = Field(..., description="Fonte normativa da regra com seção e camada")
+
+
+class MarcoLinhaTempo(BaseModel):
+    marco: str = Field(..., description="Nome do marco ou etapa")
+    antes: str = Field(..., description="Data ou valor antes da alteração (YYYY-MM-DD)")
+    depois: str = Field(..., description="Data ou valor depois da alteração (YYYY-MM-DD)")
+    muda: bool = Field(..., description="True se a data/valor foi alterado pela simulação")
+    fonte: Fonte = Field(..., description="Fonte normativa do marco")
+
+
+class ImpactoSimulacao(BaseModel):
+    tipo: str = Field(..., description="Tipo do impacto: conflito_interno, revisar_documento, muda_aprovador")
+    descricao: str = Field(..., description="Descrição detalhada do impacto")
+    codigo: Optional[str] = Field(None, description="Código do documento afetado")
+    versao: Optional[str] = Field(None, description="Versão do documento afetado")
+    antes: Optional[str] = Field(None, description="Estado anterior (ex: para muda_aprovador)")
+    depois: Optional[str] = Field(None, description="Estado posterior (ex: para muda_aprovador)")
+    fontes: List[Fonte] = Field(default_factory=list, description="Fontes que fundamentam o impacto")
+
+
+class SimulacaoRequest(BaseModel):
+    regra: str = Field(..., description="Identificador da regra a ser simulada")
+    novo_valor: Union[int, float] = Field(..., gt=0, description="Novo valor hipotético (maior que zero)")
+    cenario: Optional[str] = Field(None, description="Cenário ou documento de exemplo (opcional)")
+
+
+class SimulacaoResponse(BaseModel):
+    regra: str = Field(..., description="Identificador da regra simulada")
+    valor_atual: Union[int, float] = Field(..., description="Valor atual da regra")
+    novo_valor: Union[int, float] = Field(..., description="Novo valor simulado")
+    unidade: str = Field(..., description="Unidade de medida")
+    cenario: Optional[str] = Field(None, description="Cenário simulado")
+    linha_do_tempo: List[MarcoLinhaTempo] = Field(default_factory=list, description="Marcos da linha do tempo comparados antes e depois")
+    impactos: List[ImpactoSimulacao] = Field(default_factory=list, description="Impactos identificados pela alteração")
+    resumo: List[str] = Field(default_factory=list, description="Resumo dos efeitos")
+    aviso: str = Field("Simulação hipotética: não altera os documentos.", description="Aviso legal de simulação")
+
+
 
