@@ -10,4 +10,4 @@ Camada comum em `app/canais/`: `cartao.py` monta o cartão neutro (conclusão, a
 3. `cp .env.example .env` e preencha `SLACK_BOT_TOKEN`, `SLACK_APP_TOKEN`, `API_URL`, `PAINEL_URL` (o `.env` não vai para o repositório).
 4. Suba a API (`uvicorn app.main:app`) e o bot (`python -m app.canais.slack`).
 
-Uso: `/acervo <pergunta>` ou `/acervo radar [tema]` (o radar depende de `GET /api/radar`, issue #7).
+Uso: `/acervo <pergunta>` ou `/acervo radar [perspectiva]` (o radar depende de `GET /api/radar`, issue #7).

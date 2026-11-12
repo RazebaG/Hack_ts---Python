@@ -9,7 +9,7 @@ features:
   slash_commands:
     - command: /acervo
       description: Pergunte ao acervo ou veja o radar
-      usage_hint: "<pergunta> | radar [tema]"
+      usage_hint: "<pergunta> | radar [perspectiva]"
       should_escape: false
 oauth_config:
   scopes:

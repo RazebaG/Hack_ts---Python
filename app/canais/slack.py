@@ -1,7 +1,7 @@
 """Adaptador Slack (Bolt for Python, Socket Mode) — Issue #9.
 
 - `/acervo <pergunta>` → `POST /api/perguntar` → cartão neutro em Block Kit.
-- `/acervo radar [tema]` → `GET /api/radar` → até 3 itens mais severos, com fontes.
+- `/acervo radar [perspectiva]` → `GET /api/radar` → até 3 itens mais severos, com fontes.
 - Botões Útil/Não útil → `POST /api/avaliacoes` com `canal: slack`.
 
 Execução: `python -m app.canais.slack` (variáveis em `.env`, ver `.env.example`).
@@ -22,12 +22,14 @@ ACOES_AVALIACAO = {acao: util for acao, _, util in BOTOES_AVALIACAO}
 
 # Mensagens de interface (estado do bot), nunca conteúdo de resposta
 MSG_CONSULTANDO = "Consultando o acervo…"
-MSG_USO = "Uso: `/acervo <pergunta>` ou `/acervo radar [tema]`."
+MSG_USO = "Uso: `/acervo <pergunta>` ou `/acervo radar [perspectiva]`."
 MSG_API_FORA = "Não consegui falar com a API do acervo agora. Tente de novo em instantes."
+MSG_RECUSADO = "A API do acervo recusou o pedido: {detalhe}"
 MSG_SEM_ITENS = "O radar não retornou itens para este filtro."
 MSG_AVALIADO = {True: "Avaliação registrada: útil. Obrigado!", False: "Avaliação registrada: não útil. Obrigado!"}
 
 LIMITE_TEXTO = 2900  # Slack: 3000 caracteres por bloco de texto
+LIMITE_BLOCOS = 50  # Slack: máximo de blocos por mensagem
 
 log = logging.getLogger(__name__)
 
@@ -91,13 +93,23 @@ def blocos_cartao(cartao: Cartao) -> List[Dict[str, Any]]:
 
 def renderizar(cartoes: List[Cartao]) -> Dict[str, Any]:
     """Payload de mensagem do Slack (`blocks` + `text` de fallback para notificações)."""
+    # Respeita o limite de blocos descartando cartões inteiros, para que nenhum
+    # cartão perca citações ou botões no corte.
     blocos: List[Dict[str, Any]] = []
     for i, cartao in enumerate(cartoes):
-        if i:
-            blocos.append({"type": "divider"})
-        blocos.extend(blocos_cartao(cartao))
+        novos = ([{"type": "divider"}] if i else []) + blocos_cartao(cartao)
+        if blocos and len(blocos) + len(novos) > LIMITE_BLOCOS:
+            break
+        blocos.extend(novos)
     texto = (cartoes[0].titulo or cartoes[0].conclusao) if cartoes else ""
-    return {"text": _corta(texto), "blocks": blocos[:50]}
+    return {"text": _corta(texto), "blocks": blocos[:LIMITE_BLOCOS]}
+
+
+def _mensagem_erro(e: ErroAPI) -> str:
+    """4xx → detalhe vindo da própria API; falha de rede/5xx → API indisponível."""
+    if e.recusado and e.detalhe:
+        return MSG_RECUSADO.format(detalhe=_esc(_corta(e.detalhe, 500)))
+    return MSG_API_FORA
 
 
 class SlackRenderizador:
@@ -122,7 +134,7 @@ def tratar_comando(servico: ServicoCanais, ack: Callable, respond: Callable, com
         cartoes = servico.receber(texto)
     except ErroAPI as e:
         log.warning("Falha na API do acervo: %s", e)
-        respond(text=MSG_API_FORA, replace_original=False)
+        respond(text=_mensagem_erro(e), replace_original=False)
         return
     if not cartoes:
         respond(text=MSG_SEM_ITENS, replace_original=False)
@@ -138,7 +150,7 @@ def tratar_avaliacao(servico: ServicoCanais, ack: Callable, respond: Callable, b
         servico.avaliar(acao["value"], util, CANAL)
     except ErroAPI as e:
         log.warning("Falha ao registrar avaliação: %s", e)
-        respond(text=MSG_API_FORA, replace_original=False, response_type="ephemeral")
+        respond(text=_mensagem_erro(e), replace_original=False, response_type="ephemeral")
         return
     respond(text=MSG_AVALIADO[util], replace_original=False, response_type="ephemeral")
 
