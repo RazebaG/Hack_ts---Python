@@ -55,6 +55,31 @@ class AcervoRepository:
                 self._por_codigo[doc.codigo] = []
             self._por_codigo[doc.codigo].append(doc)
 
+    def adicionar(self, doc: DocumentoDetalhe) -> None:
+        """Inclui um documento novo (upload ou digitalização) no acervo em memória."""
+        key = (doc.codigo, doc.versao)
+        if key in self._por_codigo_versao:
+            raise ValueError(f"{doc.codigo} v{doc.versao} já existe no acervo.")
+        self.documentos.append(doc)
+        self._por_codigo_versao[key] = doc
+        self._por_codigo.setdefault(doc.codigo, []).append(doc)
+
+    def remover(self, codigo: str, versao: str) -> bool:
+        """Retira um documento do acervo em memória (usado para desfazer publicações)."""
+        doc = self._por_codigo_versao.pop((codigo, versao), None)
+        if doc is None:
+            return False
+        self.documentos.remove(doc)
+        lista = self._por_codigo.get(codigo, [])
+        if doc in lista:
+            lista.remove(doc)
+        if not lista:
+            self._por_codigo.pop(codigo, None)
+        return True
+
+    def existe(self, codigo: str, versao: str) -> bool:
+        return (codigo, versao) in self._por_codigo_versao
+
     def total(self) -> int:
         return len(self.documentos)
 
@@ -88,6 +113,7 @@ class AcervoRepository:
                 aprovado_por=d.aprovado_por,
                 camada=d.camada,
                 tema=d.tema,
+                origem=d.origem,
             )
             resultado.append(resumo)
         return resultado

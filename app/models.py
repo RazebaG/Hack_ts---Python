@@ -65,6 +65,7 @@ class DocumentoResumo(BaseModel):
     aprovado_por: Optional[str] = Field(None, description="Instância que aprovou o documento")
     camada: Camada = Field(..., description="Camada da norma derivada do catálogo")
     tema: Tema = Field(..., description="Tema e série do documento derivados do catálogo")
+    origem: str = Field("acervo", description="Origem do documento: acervo, upload ou digitalizado")
 
 
 class DocumentoDetalhe(DocumentoResumo):

@@ -11,6 +11,7 @@ Implementa o endpoint GET /api/radar (Issue #7, Adendo v0.2):
 - Todo item carrega tema derivado do catálogo (C17)
 """
 
+import re
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional
 from fastapi import HTTPException
@@ -25,6 +26,15 @@ from app.acervo import AcervoRepository, get_acervo
 from app.taxonomia import derivar_camada, derivar_tema
 
 PERSPECTIVAS_VALIDAS = {"juridico", "financeiro", "pessoas", "gestao"}
+
+# Perspectivas afetadas por assunto, para itens derivados de documentos publicados
+PERSPECTIVAS_POR_ASSUNTO = {
+    "ferias": ["pessoas"],
+    "locacao": ["juridico", "financeiro"],
+    "inovacao": ["gestao"],
+}
+CODIGO_RE = re.compile(r"\b(?:NG|PX|PP|GU|FM|TB|FL|RG|CT|DV|CTR|NT)_[0-9]+(?:-[0-9]+)?\b")
+LIMITE_TRECHO = 220
 
 
 class RadarService:
@@ -110,7 +120,56 @@ class RadarService:
             tema=derivar_tema("NT_2026-018", assunto="locacao"),
         )
 
-        return [item_ng111, item_fm1111, item_ng012]
+        itens = [item_ng111, item_fm1111]
+        # A referência só é "ausente" enquanto o documento não estiver no acervo
+        # (ex.: publicado depois por envio em lote, issue #10).
+        if self.acervo.buscar("NG_012") is None:
+            itens.append(item_ng012)
+        return itens
+
+    def _itens_publicados(self) -> List[RadarItem]:
+        """Referências a documentos ausentes citadas por documentos publicados (issue #10)."""
+        itens: List[RadarItem] = []
+        for doc in self.acervo.documentos:
+            if doc.origem == "acervo" or doc.substituido:
+                continue
+            citados = []
+            for campo in (doc.vinculado_a, doc.referencia):
+                for cod in CODIGO_RE.findall(campo or ""):
+                    if cod != doc.codigo and cod not in citados:
+                        citados.append(cod)
+            for cod in citados:
+                if self.acervo.buscar(cod) is not None:
+                    continue
+                secao = next((s for s in doc.secoes if cod in s.texto), doc.secoes[0] if doc.secoes else None)
+                if secao is None:
+                    continue
+                trecho = " ".join(secao.texto.split())
+                if len(trecho) > LIMITE_TRECHO:
+                    trecho = trecho[: LIMITE_TRECHO - 3].rstrip() + "..."
+                itens.append(
+                    RadarItem(
+                        id=f"referencia-{cod}-{doc.codigo}",
+                        tipo="referencia_ausente",
+                        status="atencao",
+                        severidade="media",
+                        titulo=f"Referência a documento ausente no acervo: {cod}",
+                        explicacao=f"O {doc.codigo} v{doc.versao} (publicado por envio) cita o {cod}, que não consta no acervo central.",
+                        perspectivas=PERSPECTIVAS_POR_ASSUNTO.get(doc.assunto, ["gestao"]),
+                        codigo_ausente=cod,
+                        fontes=[
+                            Fonte(
+                                codigo=doc.codigo,
+                                versao=doc.versao,
+                                secao=secao.id,
+                                trecho=trecho or secao.titulo,
+                                camada=doc.camada,
+                            )
+                        ],
+                        tema=doc.tema,
+                    )
+                )
+        return itens
 
     def obter_radar(self, perspectiva: Optional[str] = None) -> RadarResponse:
         """Gera a resposta consolidada do radar, aplicando filtro de perspectiva quando fornecido."""
@@ -124,7 +183,7 @@ class RadarService:
         else:
             p_clean = None
 
-        todos_itens = self._obter_itens_p0()
+        todos_itens = self._obter_itens_p0() + self._itens_publicados()
 
         if p_clean:
             itens_filtrados = [

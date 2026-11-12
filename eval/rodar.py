@@ -9,8 +9,11 @@ Critérios de aceite da Issue #2:
     - Testes das cenas 1-3 do PRD
 """
 
+import os
+import re
 import sys
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 import yaml
 
 from app.acervo import AcervoRepository
@@ -18,7 +21,10 @@ from app.models import PerguntaRequest
 from app.perguntar import PerguntarService
 
 
-def rodar_avaliacao(arquivo_yaml: Path = Path("eval/perguntas.yaml")) -> bool:
+def rodar_avaliacao(
+    arquivo_yaml: Path = Path("eval/perguntas.yaml"),
+    simulado: bool = False,
+) -> bool:
     if not arquivo_yaml.exists():
         print(f"Erro: arquivo de avaliação não encontrado em {arquivo_yaml}", file=sys.stderr)
         return False
@@ -30,6 +36,44 @@ def rodar_avaliacao(arquivo_yaml: Path = Path("eval/perguntas.yaml")) -> bool:
     if not perguntas:
         print("Erro: nenhuma pergunta encontrada no dataset de avaliação.", file=sys.stderr)
         return False
+
+    if simulado or os.getenv("BEDROCK_SIMULADO") == "1":
+        os.environ["LLM_PROVIDER"] = "bedrock"
+        mock_client = MagicMock()
+
+        def fake_converse(*args, **kwargs):
+            messages = kwargs.get("messages", [])
+            user_text = messages[0]["content"][0]["text"] if messages else ""
+            matches = re.findall(
+                r"Documento:\s*([^\s]+)\s+v([^\s]+)\s+\|\s+Seção:\s*([^\n]+)\nTrecho:\s*([^\n]+)",
+                user_text,
+            )
+            if matches:
+                cod, ver, sec, trecho = matches[0]
+                return {
+                    "output": {
+                        "message": {
+                            "content": [
+                                {"text": f"{trecho.strip()} (Fonte: {cod} v{ver}, {sec.strip()}.)"}
+                            ]
+                        }
+                    }
+                }
+            return {
+                "output": {
+                    "message": {
+                        "content": [{"text": "Não consta nas fontes."}]
+                    }
+                }
+            }
+
+        mock_client.converse.side_effect = fake_converse
+        patcher = patch("app.bedrock.get_bedrock_client", return_value=mock_client)
+        patcher.start()
+        patcher_embed = patch("app.bedrock.gerar_embeddings", return_value=None)
+        patcher_embed.start()
+        patcher_embed_recup = patch("app.recuperacao.gerar_embeddings", return_value=None)
+        patcher_embed_recup.start()
 
     # Inicializar repositório e serviço
     acervo = AcervoRepository()
@@ -140,5 +184,21 @@ def rodar_avaliacao(arquivo_yaml: Path = Path("eval/perguntas.yaml")) -> bool:
 
 
 if __name__ == "__main__":
-    sucesso = rodar_avaliacao()
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Script de avaliação do motor /api/perguntar")
+    parser.add_argument(
+        "--simulado",
+        action="store_true",
+        help="Executa avaliação com Bedrock simulado (sem rede/CI)",
+    )
+    parser.add_argument(
+        "--arquivo",
+        type=Path,
+        default=Path("eval/perguntas.yaml"),
+        help="Caminho do arquivo YAML com dataset de perguntas",
+    )
+    args = parser.parse_args()
+
+    sucesso = rodar_avaliacao(arquivo_yaml=args.arquivo, simulado=args.simulado)
     sys.exit(0 if sucesso else 1)

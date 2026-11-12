@@ -34,18 +34,23 @@ def is_key_line(line: str) -> bool:
     return any(line.startswith(k) for k in KNOWN_HEADER_KEYS)
 
 
-def parse_header(header_text: str, file_path: Path) -> dict:
-    raw_lines = [line.strip() for line in header_text.splitlines() if line.strip()]
-
+def _assunto_por_caminho(file_path: Optional[Path]) -> str:
     # Derivar assunto a partir da estrutura de diretórios
     # Ex: .../data/acervo/ferias/NG_... -> ferias
     # Ex: .../data/acervo/ferias/substituidos/NG_... -> ferias
+    if file_path is None:
+        return "geral"
     parts = file_path.resolve().parts
-    assunto = "geral"
     if "acervo" in parts:
         acervo_idx = parts.index("acervo")
         if acervo_idx + 1 < len(parts):
-            assunto = parts[acervo_idx + 1]
+            return parts[acervo_idx + 1]
+    return "geral"
+
+
+def parse_header(header_text: str, file_path: Optional[Path] = None, assunto: Optional[str] = None) -> dict:
+    raw_lines = [line.strip() for line in header_text.splitlines() if line.strip()]
+    assunto = assunto or _assunto_por_caminho(file_path)
 
     doc_data = {
         "tipo_nome": "Norma Geral",
@@ -212,13 +217,41 @@ def parse_sections(body_text: str, default_title: str) -> List[Secao]:
     return sections
 
 
+def _separar_cabecalho(text: str) -> Tuple[str, str]:
+    """Separa cabeçalho e corpo.
+
+    No acervo o marcador "DOCUMENTO SINTÉTICO" divide as partes. Arquivos enviados
+    ou lidos de foto podem não ter o marcador: o cabeçalho vai até a última linha de
+    chave conhecida (Documento:, Versão:, ...) e o corpo é o restante.
+    """
+    if "DOCUMENTO SINTÉTICO" in text:
+        header_part, body_part = text.split("DOCUMENTO SINTÉTICO", 1)
+        return header_part, body_part
+    lines = text.splitlines()
+    ultima_chave = -1
+    for idx, line in enumerate(lines):
+        if is_key_line(line.strip()):
+            ultima_chave = idx
+    if ultima_chave < 0:
+        return "", text
+    return "\n".join(lines[: ultima_chave + 1]), "\n".join(lines[ultima_chave + 1 :])
+
+
 def parse_document_file(file_path: Path) -> DocumentoDetalhe:
     text = file_path.read_text(encoding="utf-8")
-    parts = text.split("DOCUMENTO SINTÉTICO")
-    header_part = parts[0]
-    body_part = parts[1] if len(parts) > 1 else ""
+    return parse_document_text(text, file_path=file_path)
 
-    header_data = parse_header(header_part, file_path)
+
+def parse_document_text(
+    text: str,
+    file_path: Optional[Path] = None,
+    assunto: Optional[str] = None,
+    origem: str = "acervo",
+) -> DocumentoDetalhe:
+    """Interpreta o texto de um documento (arquivo do acervo, upload ou foto lida)."""
+    header_part, body_part = _separar_cabecalho(text)
+
+    header_data = parse_header(header_part, file_path=file_path, assunto=assunto)
     secoes = parse_sections(body_part, header_data["titulo"])
 
     camada = derivar_camada(
@@ -249,5 +282,6 @@ def parse_document_file(file_path: Path) -> DocumentoDetalhe:
         aprovado_por=header_data["aprovado_por"],
         camada=camada,
         tema=tema,
+        origem=origem,
         secoes=secoes,
     )
