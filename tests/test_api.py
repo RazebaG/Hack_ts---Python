@@ -145,3 +145,17 @@ def test_estatisticas():
     assert stats["por_assunto"]["ferias"] == 7
     assert stats["por_assunto"]["inovacao"] == 4
     assert stats["por_assunto"]["locacao"] == 2
+
+
+def test_item_numerado_mantem_primeira_linha_no_texto():
+    """Em itens numerados, o texto da seção inclui a primeira linha (antes ia só para o título)."""
+    v3 = client.get("/api/documentos/NG_111", params={"versao": "3.0.0"}).json()
+    s431 = next(s for s in v3["secoes"] if s["id"] == "4.3.1")
+    assert s431["texto"].startswith("A solicitação é formal")
+    assert "45 dias corridos" in s431["texto"]
+
+    v2 = client.get("/api/documentos/NG_111", params={"versao": "2.0.0"}).json()
+    s23 = next(s for s in v2["secoes"] if s["id"] == "2.3")
+    assert "antecedência mínima de 30 dias" in s23["texto"]
+    s41 = next(s for s in v2["secoes"] if s["id"] == "4.1")
+    assert "NG_010" in s41["texto"]
