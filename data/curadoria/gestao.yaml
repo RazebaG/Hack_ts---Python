@@ -47,7 +47,7 @@ valores:
       codigo: "RG_1100"
       versao: "2.0.0"
       secao: "Anexo K"
-      trecho: "Por colocação (R$ 8.000,00, R$ 5.000,00 e R$ 3.000,00) e por arena (R$ 2.000,00)"
+      trecho: "Premiação | Por colocação (R$ 8.000,00, R$ 5.000,00 e R$ 3.000,00) e por arena (R$ 2.000,00)"
 prazos:
   - data: "2026-11-25"
     evento: "Vistoria para implantação de espaço de trabalho das equipes de inovação e campo"
@@ -72,19 +72,19 @@ responsaveis:
       secao: "4.3"
       trecho: "Gasto entre R$ 18.000,01 e R$ 120.000,00: diretor da DIRTEC"
   - papel: "NIN"
-    responsabilidade: "Núcleo de Inovação: gestão do funil de inovação e triagem de ideias submetidas"
+    responsabilidade: "Núcleo de Inovação: opera o funil, publica a Tese de Inovação e produz os indicadores"
     fonte:
       codigo: "NG_1130"
       versao: "1.0.0"
-      secao: "3.1"
-      trecho: "A gestão da inovação é coordenada pelo Núcleo de Inovação (NIN), vinculado à Diretoria de Tecnologia (DIRTEC)."
+      secao: "8.3"
+      trecho: "Cabe ao NIN operar o funil, publicar a Tese de Inovação e produzir os indicadores."
 riscos:
   - descricao: "Referência à norma NG_012 não disponível no acervo para parametrização de alçadas em inovação"
     fonte:
       codigo: "NG_1130"
       versao: "1.0.0"
       secao: "4.9"
-      trecho: "Gastos com inovação respeitam as alçadas da NG_012 e o orçamento anual aprovado."
+      trecho: "Gastos com inovação respeitam as alçadas da NG_012 e o orçamento anual descrito em nota técnica."
   - descricao: "Submissão de propostas excedendo o limite de 2 ideias por colaborador"
     fonte:
       codigo: "RG_1100"

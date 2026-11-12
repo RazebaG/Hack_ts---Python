@@ -375,3 +375,41 @@ def test_todas_as_fontes_das_perspectivas_existem_no_acervo():
                     assert (
                         fa["secao"] in secao_a_ids
                     ), f"Seção anterior '{fa['secao']}' não encontrada em {fa['codigo']} v{fa['versao']}"
+
+
+def test_curadoria_toda_fonte_confere_com_o_acervo():
+    """Nunca valor sem fonte: código, versão, seção e trecho de toda curadoria existem no acervo."""
+    from app.inteligencia import InteligenciaService
+
+    assert InteligenciaService().erros_curadoria() == []
+
+
+def test_trecho_inventado_e_descartado():
+    """Uma fonte cujo trecho não está na seção é recusada pela validação."""
+    from app.inteligencia import InteligenciaService
+
+    svc = InteligenciaService()
+    erro = svc.validar_fonte(
+        {"codigo": "NG_1130", "versao": "1.0.0", "secao": "4.9", "trecho": "o orçamento anual aprovado pela DIRAF"}
+    )
+    assert erro and "trecho não consta" in erro
+
+
+def test_tema_das_fontes_vem_do_documento_citado():
+    """tema.assunto é a pasta do documento (ferias/inovacao/locacao), não o id da perspectiva."""
+    for pid in ("financeiro", "pessoas", "juridico", "gestao"):
+        data = client.get(f"/api/perspectivas/{pid}").json()
+        for grupo in ("destaques", "valores", "prazos", "responsaveis", "riscos"):
+            for item in data[grupo]:
+                doc = client.get(
+                    f"/api/documentos/{item['fonte']['codigo']}", params={"versao": item["fonte"]["versao"]}
+                ).json()
+                assert item["tema"]["assunto"] == doc["assunto"], (pid, grupo, item["fonte"])
+                assert item["fonte"]["camada"] == doc["camada"]
+
+
+def test_grafo_ng010_vem_do_texto_da_versao_substituida():
+    """NG_010 é citada só no item 4.1 da NG_111 v2.0.0; a aresta sai do texto, não de lista fixa."""
+    data = client.get("/api/grafo").json()
+    citantes = {a["de"] for a in data["arestas"] if a["para"] == "NG_010"}
+    assert citantes == {"NG_111@2.0.0"}
