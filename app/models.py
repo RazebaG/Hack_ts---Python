@@ -74,3 +74,38 @@ class DocumentoDetalhe(DocumentoResumo):
 class SaudeResponse(BaseModel):
     status: str = "ok"
     documentos: int
+
+
+class PerguntaRequest(BaseModel):
+    pergunta: str = Field(..., description="Pergunta em linguagem natural sobre o acervo")
+    perfil: Optional[str] = Field(None, description="Perfil do usuário: empregado, gestor, diretoria, financeiro, juridico, rh")
+
+
+class PerguntaResponse(BaseModel):
+    resposta_id: str = Field(..., description="Identificador único da resposta (C13)")
+    resposta: str = Field(..., description="Texto da resposta extrativa estruturada conforme o perfil")
+    consta: bool = Field(True, description="True se a informação consta no acervo; False em caso de abstenção")
+    citacoes: List[Citacao] = Field(default_factory=list, description="Lista de citações que sustentam a resposta")
+    avisos: List[str] = Field(default_factory=list, description="Avisos sobre versões substituídas ou notas")
+    proxima_acao: Optional[str] = Field(None, description="Próxima ação recomendada (RF32)")
+
+
+class AvaliacaoRequest(BaseModel):
+    resposta_id: str = Field(..., description="Identificador da resposta avaliada (C13)")
+    util: bool = Field(..., description="Indica se a resposta foi útil (True/False)")
+    motivo: Optional[str] = Field(None, description="Motivo opcional da avaliação")
+    comentario: Optional[str] = Field(None, max_length=200, description="Comentário livre de até 200 caracteres")
+    canal: str = Field(..., pattern="^(web|slack|teams)$", description="Canal de origem: web, slack ou teams")
+    perfil: Optional[str] = Field(None, description="Perfil do usuário que avaliou")
+
+
+class AvaliacaoResponse(BaseModel):
+    id: str = Field(..., description="Identificador único do registro de avaliação")
+    registrado_em: str = Field(..., description="Data/hora ISO 8601 do registro")
+
+
+class AvaliacaoResumoResponse(BaseModel):
+    total: int = Field(0, description="Total de avaliações registradas")
+    uteis: int = Field(0, description="Total de avaliações marcadas como úteis")
+    por_canal: dict[str, int] = Field(default_factory=dict, description="Contagem de avaliações por canal")
+
