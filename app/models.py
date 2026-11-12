@@ -224,3 +224,50 @@ class RelatorioResponse(BaseModel):
     codigo: Optional[str] = Field(None, description="Código do documento se aplicável")
     secoes: List[RelatorioSecao] = Field(default_factory=list, description="Seções do relatório")
 
+
+# ==============================================================================
+# Modelos do Radar de Contradições (Issue #7, Adendo v0.2, C15, C17)
+# ==============================================================================
+
+class RadarResumo(BaseModel):
+    divergente: int = Field(0, description="Total de itens divergentes (versões substituídas / conflitos)")
+    atencao: int = Field(0, description="Total de itens de atenção (referências ausentes)")
+
+
+class RadarItem(BaseModel):
+    id: str = Field(..., description="Identificador único do item no radar")
+    tipo: str = Field(..., description="Tipo do item: versao_substituida ou referencia_ausente")
+    status: str = Field(..., description="Status do item: divergente ou atencao")
+    severidade: str = Field("media", description="Severidade do item: alta, media ou baixa")
+    titulo: str = Field(..., description="Título descritivo da contradição ou ausência")
+    explicacao: str = Field(..., description="Explicação da divergência ou regra aplicável")
+    perspectivas: List[str] = Field(default_factory=list, description="Lista de perspectivas afetadas (pessoas, juridico, financeiro, gestao)")
+    codigo_ausente: Optional[str] = Field(None, description="Código do documento ausente no acervo quando aplicável")
+    fontes: List[Fonte] = Field(default_factory=list, description="Lista de fontes que fundamentam o item com camada")
+    tema: Optional[Tema] = Field(None, description="Tema derivado do catálogo (C17)")
+
+
+class RadarResponse(BaseModel):
+    gerado_em: str = Field(..., description="Timestamp ISO 8601 da geração")
+    resumo: RadarResumo = Field(..., description="Contagem consolidada por status")
+    itens: List[RadarItem] = Field(default_factory=list, description="Lista de itens identificados pelo radar")
+
+
+# ==============================================================================
+# Modelos do Decodificador de Códigos (Issue #3, C15, C17, RF16)
+# ==============================================================================
+
+class CodigoDecodificado(BaseModel):
+    codigo: str = Field(..., description="Código do documento analisado")
+    tipo: Optional[str] = Field(None, description="Sigla do tipo documental, ex: PX, NG, CTR, CT")
+    tipo_nome: Optional[str] = Field(None, description="Nome por extenso do tipo documental")
+    vinculado_a: Optional[str] = Field(None, description="Código do documento ao qual este se vincula")
+    serie: Optional[str] = Field(None, description="Número da série do catálogo §5 em texto (ex: '1', '11') ou null")
+    serie_nome: Optional[str] = Field(None, description="Nome por extenso da série no catálogo §5")
+    vigencia_regra: Optional[str] = Field(None, description="Regra de vigência do tipo documental segundo o catálogo")
+    existe_no_acervo: bool = Field(..., description="True se o documento existe no acervo; False caso contrário")
+    observacao: Optional[str] = Field(None, description="Observações sobre ambiguidade, ausência de série ou lacunas")
+    camada: Optional[Camada] = Field(None, description="Camada da norma derivada do catálogo")
+    tema: Optional[Tema] = Field(None, description="Tema e série derivados do catálogo")
+
+

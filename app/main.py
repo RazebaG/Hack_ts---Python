@@ -11,11 +11,14 @@ from app.models import (
     AvaliacaoRequest,
     AvaliacaoResponse,
     AvaliacaoResumoResponse,
+    CodigoDecodificado,
 )
 from app.acervo import AcervoRepository, get_acervo
 from app.perguntar import PerguntarService
 from app.avaliacoes import AvaliacoesRepository
 from app.routers.inteligencia import router as inteligencia_router
+from app.routers.radar import router as radar_router
+from app.codigo import decodificar_codigo
 
 app = FastAPI(
     title="Assistente do Arquivo Central de Normas - API",
@@ -37,8 +40,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Roteador de Inteligência (Issue #4)
+# Roteadores (Issues #4 e #7)
 app.include_router(inteligencia_router)
+app.include_router(radar_router)
 
 # Inicialização dos repositórios e serviços em memória
 acervo = get_acervo()
@@ -85,6 +89,13 @@ def obter_documento(
 def get_estatisticas():
     """Retorna contadores consolidados do acervo por vigência, tipo e assunto."""
     return acervo.estatisticas()
+
+
+@app.get("/api/codigo/{codigo:path}", response_model=CodigoDecodificado)
+def decodificar_documento(codigo: str):
+    """Decodifica a estrutura de um código de documento conforme regras do catálogo (C15, C17, RF16)."""
+    return decodificar_codigo(codigo, acervo=acervo)
+
 
 
 @app.post("/api/perguntar", response_model=PerguntaResponse)
