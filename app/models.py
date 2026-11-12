@@ -109,3 +109,18 @@ class AvaliacaoResumoResponse(BaseModel):
     uteis: int = Field(0, description="Total de avaliações marcadas como úteis")
     por_canal: dict[str, int] = Field(default_factory=dict, description="Contagem de avaliações por canal")
 
+
+class CodigoDecodificado(BaseModel):
+    codigo: str = Field(..., description="Código do documento analisado")
+    tipo: Optional[str] = Field(None, description="Sigla do tipo documental, ex: PX, NG, CTR, CT")
+    tipo_nome: Optional[str] = Field(None, description="Nome por extenso do tipo documental")
+    vinculado_a: Optional[str] = Field(None, description="Código do documento ao qual este se vincula")
+    serie: Optional[str] = Field(None, description="Número da série do catálogo §5 em texto (ex: '1', '11') ou null")
+    serie_nome: Optional[str] = Field(None, description="Nome por extenso da série no catálogo §5")
+    vigencia_regra: Optional[str] = Field(None, description="Regra de vigência do tipo documental segundo o catálogo")
+    existe_no_acervo: bool = Field(..., description="True se o documento existe no acervo; False caso contrário")
+    observacao: Optional[str] = Field(None, description="Observações sobre ambiguidade, ausência de série ou lacunas")
+    camada: Optional[Camada] = Field(None, description="Camada da norma derivada do catálogo")
+    tema: Optional[Tema] = Field(None, description="Tema e série derivados do catálogo")
+
+

@@ -11,10 +11,13 @@ from app.models import (
     AvaliacaoRequest,
     AvaliacaoResponse,
     AvaliacaoResumoResponse,
+    CodigoDecodificado,
 )
 from app.acervo import AcervoRepository
 from app.perguntar import PerguntarService
 from app.avaliacoes import AvaliacoesRepository
+from app.codigo import decodificar_codigo
+
 
 app = FastAPI(
     title="Assistente do Arquivo Central de Normas - API",
@@ -81,6 +84,13 @@ def obter_documento(
 def get_estatisticas():
     """Retorna contadores consolidados do acervo por vigência, tipo e assunto."""
     return acervo.estatisticas()
+
+
+@app.get("/api/codigo/{codigo:path}", response_model=CodigoDecodificado)
+def decodificar_documento(codigo: str):
+    """Decodifica a estrutura de um código de documento conforme regras do catálogo (C15, C17, RF16)."""
+    return decodificar_codigo(codigo, acervo=acervo)
+
 
 
 @app.post("/api/perguntar", response_model=PerguntaResponse)
