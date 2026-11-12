@@ -12,9 +12,10 @@ from app.models import (
     AvaliacaoResponse,
     AvaliacaoResumoResponse,
 )
-from app.acervo import AcervoRepository
+from app.acervo import AcervoRepository, get_acervo
 from app.perguntar import PerguntarService
 from app.avaliacoes import AvaliacoesRepository
+from app.routers.inteligencia import router as inteligencia_router
 
 app = FastAPI(
     title="Assistente do Arquivo Central de Normas - API",
@@ -36,8 +37,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Roteador de Inteligência (Issue #4)
+app.include_router(inteligencia_router)
+
 # Inicialização dos repositórios e serviços em memória
-acervo = AcervoRepository()
+acervo = get_acervo()
 perguntar_service = PerguntarService(acervo)
 avaliacoes_repo = AvaliacoesRepository()
 

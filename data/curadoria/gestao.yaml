@@ -1,0 +1,93 @@
+id: "gestao"
+nome: "Gestão e Inovação"
+destaques:
+  - titulo: "Orçamento aprovado para edição 2027 do Ideias em Campo"
+    valor: "R$ 96.000,00"
+    fonte:
+      codigo: "NT_2026-021"
+      versao: "1.0.0"
+      secao: "4.5"
+      trecho: "O orçamento total do programa (R$ 96.000,00) fica abaixo do limite do Comitê de Alçadas e é aprovado pela DIRAF."
+  - titulo: "Limite de submissão de ideias por proponente"
+    valor: "Até 2 ideias"
+    fonte:
+      codigo: "RG_1100"
+      versao: "2.0.0"
+      secao: "Anexo K"
+      trecho: "Ideias por proponente | Até 3 | Até 2"
+valores:
+  - rotulo: "Orçamento total do programa de inovação"
+    numero: 96000.0
+    unidade: "BRL"
+    fonte:
+      codigo: "NT_2026-021"
+      versao: "1.0.0"
+      secao: "4.5"
+      trecho: "O orçamento total do programa (R$ 96.000,00) fica abaixo do limite do Comitê de Alçadas e é aprovado pela DIRAF."
+  - rotulo: "Premiação total do programa"
+    numero: 24000.0
+    unidade: "BRL"
+    fonte:
+      codigo: "NT_2026-021"
+      versao: "1.0.0"
+      secao: "Anexo A"
+      trecho: "a premiação por colocação e por arena soma R$ 24.000,00, um quarto do orçamento;"
+  - rotulo: "Custo de imersão e kits de prototipagem"
+    numero: 66000.0
+    unidade: "BRL"
+    fonte:
+      codigo: "NT_2026-021"
+      versao: "1.0.0"
+      secao: "Anexo A"
+      trecho: "a imersão e os kits de prototipagem somam R$ 66.000,00, mais de dois terços do orçamento;"
+  - rotulo: "Prêmio para 1º colocado no Ideias em Campo"
+    numero: 8000.0
+    unidade: "BRL"
+    fonte:
+      codigo: "RG_1100"
+      versao: "2.0.0"
+      secao: "Anexo K"
+      trecho: "Por colocação (R$ 8.000,00, R$ 5.000,00 e R$ 3.000,00) e por arena (R$ 2.000,00)"
+prazos:
+  - data: "2026-11-25"
+    evento: "Vistoria para implantação de espaço de trabalho das equipes de inovação e campo"
+    fonte:
+      codigo: "CTR_2026-012"
+      versao: "1.0.0"
+      secao: "Apêndice C"
+      trecho: "25/11/2026 | Último dia para a vistoria, antes da entrega | Cláusula Sexta e Anexo, item 5"
+responsaveis:
+  - papel: "DIRAF"
+    responsabilidade: "Aprovar orçamento total do programa Ideias em Campo por se manter abaixo do limite do Comitê de Alçadas"
+    fonte:
+      codigo: "NT_2026-021"
+      versao: "1.0.0"
+      secao: "4.5"
+      trecho: "O orçamento total do programa (R$ 96.000,00) fica abaixo do limite do Comitê de Alçadas e é aprovado pela DIRAF."
+  - papel: "DIRTEC"
+    responsabilidade: "Aprovação de despesas com prototipagem entre R$ 18.000,01 e R$ 120.000,00"
+    fonte:
+      codigo: "NT_2026-021"
+      versao: "1.0.0"
+      secao: "4.3"
+      trecho: "Gasto entre R$ 18.000,01 e R$ 120.000,00: diretor da DIRTEC"
+  - papel: "NIN"
+    responsabilidade: "Núcleo de Inovação: gestão do funil de inovação e triagem de ideias submetidas"
+    fonte:
+      codigo: "NG_1130"
+      versao: "1.0.0"
+      secao: "3.1"
+      trecho: "A gestão da inovação é coordenada pelo Núcleo de Inovação (NIN), vinculado à Diretoria de Tecnologia (DIRTEC)."
+riscos:
+  - descricao: "Referência à norma NG_012 não disponível no acervo para parametrização de alçadas em inovação"
+    fonte:
+      codigo: "NG_1130"
+      versao: "1.0.0"
+      secao: "4.9"
+      trecho: "Gastos com inovação respeitam as alçadas da NG_012 e o orçamento anual aprovado."
+  - descricao: "Submissão de propostas excedendo o limite de 2 ideias por colaborador"
+    fonte:
+      codigo: "RG_1100"
+      versao: "2.0.0"
+      secao: "Anexo K"
+      trecho: "Ideias por proponente | Até 3 | Até 2"

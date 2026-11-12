@@ -1,0 +1,122 @@
+id: "juridico"
+nome: "Jurídico e Contratos"
+destaques:
+  - titulo: "Rescisão pela Locatária sem multa a partir do 91º dia"
+    valor: "Sem multa após 90º dia"
+    fonte:
+      codigo: "CTR_2026-012"
+      versao: "1.0.0"
+      secao: "Cláusula Décima Terceira"
+      trecho: "A LOCATÁRIA pode rescindir com aviso por escrito de 30 dias corridos. Se a rescisão ocorrer até o 90º dia de vigência, aplica-se multa equivalente a um aluguel mensal; a partir do 91º dia, não há multa."
+  - titulo: "Enquadramento de contratação direta na alçada de diretor"
+    valor: "DIRAF / Diretor"
+    fonte:
+      codigo: "NT_2026-018"
+      versao: "1.0.0"
+      secao: "10"
+      trecho: "O valor global de R$ 18.250,00 supera a alçada de gerente (R$ 18.000,00) e fica na alçada de diretor (até R$ 120.000,00), conforme a NG_012; por isso a DIRAF aprova."
+valores:
+  - rotulo: "Multa contratual de rescisão até o 90º dia"
+    numero: 3650.0
+    unidade: "BRL"
+    fonte:
+      codigo: "CTR_2026-012"
+      versao: "1.0.0"
+      secao: "Cláusula Décima Terceira"
+      trecho: "Se a rescisão ocorrer até o 90º dia de vigência, aplica-se multa equivalente a um aluguel mensal; a partir do 91º dia, não há multa."
+  - rotulo: "Multa por inexecução total ou parcial (5%)"
+    numero: 912.5
+    unidade: "BRL"
+    fonte:
+      codigo: "CTR_2026-012"
+      versao: "1.0.0"
+      secao: "Apêndice B"
+      trecho: "Multa por inexecução | 5% × 18.250,00 | 912,50"
+  - rotulo: "Valor global da locação"
+    numero: 18250.0
+    unidade: "BRL"
+    fonte:
+      codigo: "CTR_2026-012"
+      versao: "1.0.0"
+      secao: "Cláusula Sétima"
+      trecho: "O aluguel mensal é de R$ 3.650,00, perfazendo o valor global de R$ 18.250,00 para os 5 meses de vigência."
+  - rotulo: "Alçada máxima de diretor"
+    numero: 120000.0
+    unidade: "BRL"
+    fonte:
+      codigo: "NT_2026-018"
+      versao: "1.0.0"
+      secao: "Anexo F"
+      trecho: "De R$ 18.000,01 a R$ 120.000,00 | Diretor"
+  - rotulo: "Alçada máxima de gerente"
+    numero: 18000.0
+    unidade: "BRL"
+    fonte:
+      codigo: "NT_2026-018"
+      versao: "1.0.0"
+      secao: "Anexo F"
+      trecho: "Até R$ 18.000,00 | Gerente"
+prazos:
+  - data: "2026-11-25"
+    evento: "Vistoria prévia do espaço locado"
+    fonte:
+      codigo: "CTR_2026-012"
+      versao: "1.0.0"
+      secao: "Apêndice C"
+      trecho: "25/11/2026 | Último dia para a vistoria, antes da entrega | Cláusula Sexta e Anexo, item 5"
+  - data: "2026-11-30"
+    evento: "Início da vigência do contrato de locação (150 dias)"
+    fonte:
+      codigo: "CTR_2026-012"
+      versao: "1.0.0"
+      secao: "Cláusula Segunda"
+      trecho: "O contrato vigora por 150 dias corridos, de 30/11/2026 a 29/04/2027."
+  - data: "2027-03-30"
+    evento: "Prazo final para manifestar interesse de prorrogação"
+    fonte:
+      codigo: "CTR_2026-012"
+      versao: "1.0.0"
+      secao: "Apêndice C"
+      trecho: "30/03/2027 | Último dia para o pedido de prorrogação, 30 dias corridos antes do fim da vigência | Cláusula Terceira"
+  - data: "2027-04-29"
+    evento: "Término da vigência do contrato de 150 dias"
+    fonte:
+      codigo: "CTR_2026-012"
+      versao: "1.0.0"
+      secao: "Cláusula Segunda"
+      trecho: "O contrato vigora por 150 dias corridos, de 30/11/2026 a 29/04/2027."
+responsaveis:
+  - papel: "DIRAF"
+    responsabilidade: "Aprovação da contratação direta com base na alçada de diretor definida pela NG_012"
+    fonte:
+      codigo: "NT_2026-018"
+      versao: "1.0.0"
+      secao: "10"
+      trecho: "O valor global de R$ 18.250,00 supera a alçada de gerente (R$ 18.000,00) e fica na alçada de diretor (até R$ 120.000,00), conforme a NG_012; por isso a DIRAF aprova."
+  - papel: "GCO"
+    responsabilidade: "Elaboração da nota técnica e verificação de ausência de fracionamento de despesa e compatibilidade com mercado"
+    fonte:
+      codigo: "NT_2026-018"
+      versao: "1.0.0"
+      secao: "Anexo E"
+      trecho: "Ausência de fracionamento. A GCO verificou que não há fracionamento de despesa de mesma natureza no exercício."
+  - papel: "GOC"
+    responsabilidade: "Fiscal técnico da locação e atesto das notas em até 5 dias úteis"
+    fonte:
+      codigo: "CTR_2026-012"
+      versao: "1.0.0"
+      secao: "Cláusula Nona"
+      trecho: "O fiscal técnico atesta a prestação em até 5 dias úteis do recebimento da nota. Sem atesto, não há pagamento."
+riscos:
+  - descricao: "Aplicação de multa de um aluguel mensal (R$ 3.650,00) em caso de rescisão até o 90º dia"
+    fonte:
+      codigo: "CTR_2026-012"
+      versao: "1.0.0"
+      secao: "Cláusula Décima Terceira"
+      trecho: "Se a rescisão ocorrer até o 90º dia de vigência, aplica-se multa equivalente a um aluguel mensal; a partir do 91º dia, não há multa."
+  - descricao: "Documento regulador de alçadas NG_012 ausente no acervo central de normas"
+    fonte:
+      codigo: "NT_2026-018"
+      versao: "1.0.0"
+      secao: "Anexo F"
+      trecho: "A nota técnica cita as alçadas da NG_012."

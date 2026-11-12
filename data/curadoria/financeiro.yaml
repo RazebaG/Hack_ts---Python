@@ -1,0 +1,161 @@
+id: "financeiro"
+nome: "Financeiro"
+destaques:
+  - titulo: "Valor global da locação de coworking"
+    valor: "R$ 18.250,00"
+    fonte:
+      codigo: "CTR_2026-012"
+      versao: "1.0.0"
+      secao: "Cláusula Sétima"
+      trecho: "O aluguel mensal é de R$ 3.650,00, perfazendo o valor global de R$ 18.250,00 para os 5 meses de vigência. O valor inclui condomínio, internet, energia e limpeza."
+  - titulo: "Alçada de diretor para contratação direta"
+    valor: "R$ 18.250,00"
+    fonte:
+      codigo: "NT_2026-018"
+      versao: "1.0.0"
+      secao: "10"
+      trecho: "O valor global de R$ 18.250,00 supera a alçada de gerente (R$ 18.000,00) e fica na alçada de diretor (até R$ 120.000,00), conforme a NG_012; por isso a DIRAF aprova."
+valores:
+  - rotulo: "Valor global do coworking"
+    numero: 18250.0
+    unidade: "BRL"
+    fonte:
+      codigo: "CTR_2026-012"
+      versao: "1.0.0"
+      secao: "Cláusula Sétima"
+      trecho: "O aluguel mensal é de R$ 3.650,00, perfazendo o valor global de R$ 18.250,00 para os 5 meses de vigência."
+  - rotulo: "Multa por inexecução"
+    numero: 912.5
+    unidade: "BRL"
+    fonte:
+      codigo: "CTR_2026-012"
+      versao: "1.0.0"
+      secao: "Apêndice B"
+      trecho: "Multa por inexecução | 5% × 18.250,00 | 912,50"
+  - rotulo: "Aluguel mensal"
+    numero: 3650.0
+    unidade: "BRL"
+    fonte:
+      codigo: "CTR_2026-012"
+      versao: "1.0.0"
+      secao: "Cláusula Sétima"
+      trecho: "O aluguel mensal é de R$ 3.650,00, perfazendo o valor global de R$ 18.250,00 para os 5 meses de vigência."
+  - rotulo: "Multa por rescisão até o 90º dia"
+    numero: 3650.0
+    unidade: "BRL"
+    fonte:
+      codigo: "CTR_2026-012"
+      versao: "1.0.0"
+      secao: "Apêndice B"
+      trecho: "Multa por rescisão até o 90º dia | Um aluguel mensal | 3.650,00"
+  - rotulo: "Alçada máxima de diretor"
+    numero: 120000.0
+    unidade: "BRL"
+    fonte:
+      codigo: "NT_2026-018"
+      versao: "1.0.0"
+      secao: "Anexo F"
+      trecho: "De R$ 18.000,01 a R$ 120.000,00 | Diretor"
+  - rotulo: "Alçada máxima de gerente"
+    numero: 18000.0
+    unidade: "BRL"
+    fonte:
+      codigo: "NT_2026-018"
+      versao: "1.0.0"
+      secao: "Anexo F"
+      trecho: "Até R$ 18.000,00 | Gerente"
+  - rotulo: "Limite de ressarcimento por alteração de férias"
+    numero: 2500.0
+    unidade: "BRL"
+    fonte:
+      codigo: "NG_111"
+      versao: "3.0.0"
+      secao: "Anexo C"
+      trecho: "A ACME ressarce o valor integral, porque ele está dentro do limite de R$ 2.500,00 por evento."
+  - rotulo: "Orçamento total do programa de inovação"
+    numero: 96000.0
+    unidade: "BRL"
+    fonte:
+      codigo: "NT_2026-021"
+      versao: "1.0.0"
+      secao: "4.5"
+      trecho: "O orçamento total do programa (R$ 96.000,00) fica abaixo do limite do Comitê de Alçadas e é aprovado pela DIRAF."
+prazos:
+  - data: "2026-11-25"
+    evento: "Último dia para a vistoria do espaço de coworking"
+    fonte:
+      codigo: "CTR_2026-012"
+      versao: "1.0.0"
+      secao: "Apêndice C"
+      trecho: "25/11/2026 | Último dia para a vistoria, antes da entrega | Cláusula Sexta e Anexo, item 5"
+  - data: "2026-11-30"
+    evento: "Início da vigência do contrato de coworking e entrega do espaço"
+    fonte:
+      codigo: "CTR_2026-012"
+      versao: "1.0.0"
+      secao: "Cláusula Segunda"
+      trecho: "O contrato vigora por 150 dias corridos, de 30/11/2026 a 29/04/2027."
+  - data: "2027-03-30"
+    evento: "Último dia para o pedido de prorrogação do contrato de coworking"
+    fonte:
+      codigo: "CTR_2026-012"
+      versao: "1.0.0"
+      secao: "Apêndice C"
+      trecho: "30/03/2027 | Último dia para o pedido de prorrogação, 30 dias corridos antes do fim da vigência | Cláusula Terceira"
+  - data: "2027-04-29"
+    evento: "Fim da vigência de 150 dias do contrato de coworking"
+    fonte:
+      codigo: "CTR_2026-012"
+      versao: "1.0.0"
+      secao: "Cláusula Segunda"
+      trecho: "O contrato vigora por 150 dias corridos, de 30/11/2026 a 29/04/2027."
+  - data: "2027-04-30"
+    evento: "Pagamento antecipado das férias do exemplo (D-3 em dia útil anterior)"
+    marco: "D-3"
+    cenario: "Exemplo PX_1111-001: férias a partir de 05/05/2027"
+    fonte:
+      codigo: "PX_1111-001"
+      versao: "1.0.0"
+      secao: "Anexo D"
+      trecho: "02/05/2027 | É domingo; a GFI antecipa o pagamento para 30/04/2027."
+responsaveis:
+  - papel: "GOC"
+    responsabilidade: "Fiscal técnico; atesta prestação em até 5 dias úteis do recebimento da nota (sem atesto, não há pagamento)"
+    fonte:
+      codigo: "CTR_2026-012"
+      versao: "1.0.0"
+      secao: "Cláusula Nona"
+      trecho: "O fiscal técnico atesta a prestação em até 5 dias úteis do recebimento da nota. Sem atesto, não há pagamento."
+  - papel: "DIRAF"
+    responsabilidade: "Aprovação de contratação direta pela alçada de diretor (R$ 18.000,01 a R$ 120.000,00)"
+    fonte:
+      codigo: "NT_2026-018"
+      versao: "1.0.0"
+      secao: "10"
+      trecho: "O valor global de R$ 18.250,00 supera a alçada de gerente (R$ 18.000,00) e fica na alçada de diretor (até R$ 120.000,00), conforme a NG_012; por isso a DIRAF aprova."
+  - papel: "GFI"
+    responsabilidade: "Pagamento de férias até D-3 (antecipado para o dia útil anterior se fim de semana)"
+    fonte:
+      codigo: "PX_1111-001"
+      versao: "1.0.0"
+      secao: "Anexo B"
+      trecho: "D-3 | Último dia para o pagamento (antecipado para o dia útil anterior se cair em sábado, domingo ou feriado) | GFI"
+riscos:
+  - descricao: "Multa por inexecução total ou parcial do contrato de locação: 5% sobre o valor global (R$ 912,50)"
+    fonte:
+      codigo: "CTR_2026-012"
+      versao: "1.0.0"
+      secao: "Apêndice B"
+      trecho: "Multa por inexecução | 5% × 18.250,00 | 912,50"
+  - descricao: "Desconto de R$ 121,67 por dia de interrupção de internet superior a 4 horas"
+    fonte:
+      codigo: "CTR_2026-012"
+      versao: "1.0.0"
+      secao: "Apêndice B"
+      trecho: "Desconto por dia de interrupção de internet superior a 4 horas | 1/30 × 3.650,00 | 121,67 (arredondado)"
+  - descricao: "Ausência da norma-mestra NG_012 no acervo central para comprovação formal de alçadas decisórias"
+    fonte:
+      codigo: "NT_2026-018"
+      versao: "1.0.0"
+      secao: "Anexo F"
+      trecho: "A nota técnica cita as alçadas da NG_012."
