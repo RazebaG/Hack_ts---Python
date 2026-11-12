@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional, List, Union
 from pydantic import BaseModel, Field
 
 
@@ -276,5 +276,54 @@ class CodigoDecodificado(BaseModel):
     observacao: Optional[str] = Field(None, description="Observações sobre ambiguidade, ausência de série ou lacunas")
     camada: Optional[Camada] = Field(None, description="Camada da norma derivada do catálogo")
     tema: Optional[Tema] = Field(None, description="Tema e série derivados do catálogo")
+
+
+# ==============================================================================
+# Modelos do Simulador "E se?" (Issue #8, Adendo v0.2)
+# ==============================================================================
+
+class RegraSimulacao(BaseModel):
+    id: str = Field(..., description="Identificador único da regra, ex: ferias_antecedencia_dias")
+    rotulo: str = Field(..., description="Descrição legível da regra")
+    valor: Union[int, float] = Field(..., description="Valor atual vigente da regra")
+    unidade: str = Field(..., description="Unidade de medida: dias, BRL, %")
+    fonte: Fonte = Field(..., description="Fonte normativa da regra com seção e camada")
+
+
+class MarcoLinhaTempo(BaseModel):
+    marco: str = Field(..., description="Nome do marco ou etapa")
+    antes: str = Field(..., description="Data ou valor antes da alteração (YYYY-MM-DD)")
+    depois: str = Field(..., description="Data ou valor depois da alteração (YYYY-MM-DD)")
+    muda: bool = Field(..., description="True se a data/valor foi alterado pela simulação")
+    fonte: Fonte = Field(..., description="Fonte normativa do marco")
+
+
+class ImpactoSimulacao(BaseModel):
+    tipo: str = Field(..., description="Tipo do impacto: conflito_interno, revisar_documento, muda_aprovador")
+    descricao: str = Field(..., description="Descrição detalhada do impacto")
+    codigo: Optional[str] = Field(None, description="Código do documento afetado")
+    versao: Optional[str] = Field(None, description="Versão do documento afetado")
+    antes: Optional[str] = Field(None, description="Estado anterior (ex: para muda_aprovador)")
+    depois: Optional[str] = Field(None, description="Estado posterior (ex: para muda_aprovador)")
+    fontes: List[Fonte] = Field(default_factory=list, description="Fontes que fundamentam o impacto")
+
+
+class SimulacaoRequest(BaseModel):
+    regra: str = Field(..., description="Identificador da regra a ser simulada")
+    novo_valor: Union[int, float] = Field(..., gt=0, description="Novo valor hipotético (maior que zero)")
+    cenario: Optional[str] = Field(None, description="Cenário ou documento de exemplo (opcional)")
+
+
+class SimulacaoResponse(BaseModel):
+    regra: str = Field(..., description="Identificador da regra simulada")
+    valor_atual: Union[int, float] = Field(..., description="Valor atual da regra")
+    novo_valor: Union[int, float] = Field(..., description="Novo valor simulado")
+    unidade: str = Field(..., description="Unidade de medida")
+    cenario: Optional[str] = Field(None, description="Cenário simulado")
+    linha_do_tempo: List[MarcoLinhaTempo] = Field(default_factory=list, description="Marcos da linha do tempo comparados antes e depois")
+    impactos: List[ImpactoSimulacao] = Field(default_factory=list, description="Impactos identificados pela alteração")
+    resumo: List[str] = Field(default_factory=list, description="Resumo dos efeitos")
+    aviso: str = Field("Simulação hipotética: não altera os documentos.", description="Aviso legal de simulação")
+
 
 

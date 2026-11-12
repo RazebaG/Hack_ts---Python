@@ -18,6 +18,7 @@ from app.perguntar import PerguntarService
 from app.avaliacoes import AvaliacoesRepository
 from app.routers.inteligencia import router as inteligencia_router
 from app.routers.radar import router as radar_router
+from app.routers.simulador import router as simulador_router
 from app.codigo import decodificar_codigo
 from app.bedrock import get_ia_status
 
@@ -41,9 +42,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Roteadores (Issues #4 e #7)
+# Roteadores (Issues #4, #7 e #8)
 app.include_router(inteligencia_router)
 app.include_router(radar_router)
+app.include_router(simulador_router)
 
 # Inicialização dos repositórios e serviços em memória
 acervo = get_acervo()
