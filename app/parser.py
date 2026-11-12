@@ -177,6 +177,10 @@ def parse_sections(body_text: str, default_title: str) -> List[Secao]:
                 curr_id = m.group(9).strip().rstrip(".")
                 after = m.group(10).strip()
                 curr_title = after.rstrip(".")
+                # Em itens numerados a primeira linha já é conteúdo normativo
+                # (ex.: "4.3.1. A solicitação é formal ... com antecedência"); sem isto
+                # o texto da seção perderia a primeira linha.
+                curr_text_lines.append(after)
         else:
             if curr_id is not None:
                 curr_text_lines.append(line)
