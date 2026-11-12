@@ -37,6 +37,8 @@ from app.models import (
     RelatorioResponse,
 )
 from app.acervo import AcervoRepository, get_acervo
+from app.ia import ClienteIA, ErroIA, get_cliente_ia
+from app.sintese import SinteseInvalida, TrechoFonte, sintetizar_itens
 from app.taxonomia import derivar_camada, derivar_tema
 
 logger = logging.getLogger(__name__)
@@ -83,8 +85,10 @@ class InteligenciaService:
         self,
         acervo: Optional[AcervoRepository] = None,
         curadoria_dir: Optional[Path] = None,
+        ia: Optional[ClienteIA] = None,
     ):
         self.acervo = acervo or get_acervo()
+        self.ia = ia or get_cliente_ia()
         self.curadoria_dir = curadoria_dir or self._discover_curadoria_dir()
         self._curadoria_cache: Dict[str, dict] = {}
         self.carregar_curadoria()
@@ -444,6 +448,41 @@ class InteligenciaService:
         return CompararResponse(codigo=codigo, de=de, para=para, mudancas=mudancas, resumo=resumo)
 
     def gerar_relatorio(
+        self,
+        perspectiva: Optional[str] = None,
+        codigo: Optional[str] = None,
+    ) -> RelatorioResponse:
+        """Relatório executivo; com IA ativa, abre com uma síntese ancorada nos itens (Issue #6)."""
+        rel = self._gerar_relatorio_base(perspectiva=perspectiva, codigo=codigo)
+        if not self.ia.ativo or not rel.secoes:
+            return rel
+
+        trechos: List[TrechoFonte] = []
+        for sec in rel.secoes:
+            for item in sec.itens:
+                f = item.fonte
+                texto = item.texto if f.trecho in item.texto else f"{item.texto} {f.trecho}"
+                trechos.append(TrechoFonte(f.codigo, f.versao, f.secao, texto))
+        fontes: Dict[tuple, Fonte] = {}
+        for sec in rel.secoes:
+            for item in sec.itens:
+                fontes.setdefault((item.fonte.codigo, item.fonte.versao, item.fonte.secao), item.fonte)
+
+        try:
+            itens = sintetizar_itens(self.ia, rel.titulo, trechos)
+        except (ErroIA, SinteseInvalida) as e:
+            logger.info("Síntese do relatório descartada: %s", e)
+            rel.avisos.append(f"Síntese por IA indisponível ({e}); o relatório traz os itens extraídos das fontes")
+            return rel
+
+        sintese = RelatorioSecao(
+            titulo="Síntese executiva",
+            itens=[RelatorioItem(texto=texto, fonte=fontes[(t.codigo, t.versao, t.secao)]) for texto, t in itens],
+        )
+        rel.secoes.insert(0, sintese)
+        return rel
+
+    def _gerar_relatorio_base(
         self,
         perspectiva: Optional[str] = None,
         codigo: Optional[str] = None,

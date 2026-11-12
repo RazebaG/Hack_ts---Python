@@ -13,6 +13,7 @@ from app.models import (
     AvaliacaoResumoResponse,
 )
 from app.acervo import AcervoRepository, get_acervo
+from app.ia import get_cliente_ia
 from app.perguntar import PerguntarService
 from app.avaliacoes import AvaliacoesRepository
 from app.routers.inteligencia import router as inteligencia_router
@@ -52,6 +53,7 @@ def get_saude():
     return SaudeResponse(
         status="ok",
         documentos=acervo.total(),
+        ia=get_cliente_ia().status(),
     )
 
 

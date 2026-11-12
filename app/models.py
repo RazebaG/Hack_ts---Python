@@ -71,9 +71,16 @@ class DocumentoDetalhe(DocumentoResumo):
     secoes: List[Secao] = Field(default_factory=list, description="Lista de seções do documento")
 
 
+class IAStatus(BaseModel):
+    provedor: str = Field("nenhum", description="Provedor de IA: bedrock ou nenhum")
+    modelo: Optional[str] = Field(None, description="ID do modelo de texto em uso")
+    disponivel: bool = Field(False, description="False se a IA está desligada ou a última chamada falhou")
+
+
 class SaudeResponse(BaseModel):
     status: str = "ok"
     documentos: int
+    ia: IAStatus = Field(default_factory=IAStatus, description="Estado da IA generativa (Issue #6), sem dados da conta")
 
 
 class PerguntaRequest(BaseModel):
@@ -83,7 +90,7 @@ class PerguntaRequest(BaseModel):
 
 class PerguntaResponse(BaseModel):
     resposta_id: str = Field(..., description="Identificador único da resposta (C13)")
-    resposta: str = Field(..., description="Texto da resposta extrativa estruturada conforme o perfil")
+    resposta: str = Field(..., description="Texto da resposta conforme o perfil: síntese por IA validada contra as citações ou, na falta dela, extrativa")
     consta: bool = Field(True, description="True se a informação consta no acervo; False em caso de abstenção")
     citacoes: List[Citacao] = Field(default_factory=list, description="Lista de citações que sustentam a resposta")
     avisos: List[str] = Field(default_factory=list, description="Avisos sobre versões substituídas ou notas")
@@ -223,4 +230,5 @@ class RelatorioResponse(BaseModel):
     perspectiva: Optional[str] = Field(None, description="Perspectiva de origem se aplicável")
     codigo: Optional[str] = Field(None, description="Código do documento se aplicável")
     secoes: List[RelatorioSecao] = Field(default_factory=list, description="Seções do relatório")
+    avisos: List[str] = Field(default_factory=list, description="Avisos (ex.: síntese por IA indisponível)")
 

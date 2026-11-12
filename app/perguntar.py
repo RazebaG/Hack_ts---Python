@@ -1,10 +1,15 @@
+import logging
 import re
 import uuid
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from app.acervo import AcervoRepository
+from app.ia import ClienteIA, ErroIA, get_cliente_ia
 from app.models import Citacao, PerguntaRequest, PerguntaResponse
 from app.recuperacao import BuscadorLexico, ResultadoBusca
+from app.sintese import SinteseInvalida, TrechoFonte, rotulo_secao, sintetizar_resposta
+
+logger = logging.getLogger(__name__)
 
 PERFIL_MAP = {
     "empregado": "empregado",
@@ -74,15 +79,11 @@ RESPOSTA_ABSTENCAO = (
 )
 
 
-def _rotulo_secao(secao_id: str) -> str:
-    return f"item {secao_id}" if re.match(r"^\d+(?:\.\d+)*$", secao_id) else secao_id
-
-
 def _frase_citada(r: ResultadoBusca) -> str:
     trecho = r.trecho.rstrip(" ;,")
     if not trecho.endswith((".", "!", "?", "...")):
         trecho += "."
-    return f"{trecho} (Fonte: {r.codigo} v{r.versao}, {_rotulo_secao(r.secao_id)}.)"
+    return f"{trecho} (Fonte: {r.codigo} v{r.versao}, {rotulo_secao(r.secao_id)}.)"
 
 
 def montar_resposta(resultados: List[ResultadoBusca], avisos: List[str], perfil_key: str) -> Tuple[str, str]:
@@ -110,9 +111,10 @@ def montar_resposta(resultados: List[ResultadoBusca], avisos: List[str], perfil_
 class PerguntarService:
     """Serviço de respostas a perguntas sobre o acervo normativo (C13, C15, RF02, RF03, RF05, RF32)."""
 
-    def __init__(self, acervo: AcervoRepository):
+    def __init__(self, acervo: AcervoRepository, ia: Optional[ClienteIA] = None):
         self.acervo = acervo
         self.buscador = BuscadorLexico(acervo)
+        self.ia = ia or get_cliente_ia()
 
     def responder(self, req: PerguntaRequest) -> PerguntaResponse:
         pergunta = req.pergunta.strip()
@@ -138,13 +140,35 @@ class PerguntarService:
             Citacao(codigo=r.codigo, versao=r.versao, secao=r.secao_id, trecho=r.trecho, camada=r.camada)
             for r in resultados
         ]
-        resposta_texto, proxima_acao = montar_resposta(resultados, avisos, perfil_key)
+        avisos_resposta = list(avisos)
+        resposta_texto: Optional[str] = None
+        proxima_acao: Optional[str] = None
+
+        # Síntese por IA (Issue #6): ancorada só nos trechos citados e validada;
+        # qualquer falha volta para a resposta extrativa, com aviso.
+        if self.ia.ativo:
+            # O modelo lê a seção citada inteira (limitada): trechos cortados ("Último dia p...")
+            # levavam a associar a data ao evento errado. A âncora continua sendo a citação.
+            trechos = [
+                TrechoFonte(r.codigo, r.versao, r.secao_id, r.texto if r.trecho.rstrip(".") in r.texto else f"{r.trecho} {r.texto}")
+                for r in resultados
+            ]
+            try:
+                sintese = sintetizar_resposta(self.ia, pergunta, perfil_key, trechos, avisos)
+                resposta_texto, proxima_acao = sintese.resposta, sintese.proxima_acao
+            except (ErroIA, SinteseInvalida) as e:
+                logger.info("Síntese descartada: %s", e)
+                avisos_resposta.append(f"Síntese por IA indisponível ({e}); a resposta reúne os trechos citados")
+
+        extrativa, proxima_extrativa = montar_resposta(resultados, avisos, perfil_key)
+        resposta_texto = resposta_texto or extrativa
+        proxima_acao = proxima_acao or proxima_extrativa
 
         return PerguntaResponse(
             resposta_id=resposta_id,
             resposta=resposta_texto,
             consta=True,
             citacoes=citacoes,
-            avisos=avisos,
+            avisos=avisos_resposta,
             proxima_acao=proxima_acao,
         )

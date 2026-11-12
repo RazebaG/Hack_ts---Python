@@ -8,3 +8,6 @@ os.environ.setdefault(
     "AVALIACOES_FILE",
     str(Path(tempfile.mkdtemp(prefix="avaliacoes-teste-")) / "avaliacoes.jsonl"),
 )
+
+# Os testes nunca chamam o Bedrock de verdade, mesmo com um .env local de bedrock.
+os.environ["LLM_PROVIDER"] = "nenhum"
