@@ -134,3 +134,15 @@ class AcervoRepository:
             "por_grupo": por_grupo,
             "por_serie": por_serie,
         }
+
+
+_acervo_instance: Optional[AcervoRepository] = None
+
+
+def get_acervo(data_dir: Optional[Path] = None) -> AcervoRepository:
+    """Retorna uma instância única de AcervoRepository para reuso entre módulos."""
+    global _acervo_instance
+    if _acervo_instance is None or data_dir is not None:
+        _acervo_instance = AcervoRepository(data_dir)
+    return _acervo_instance
+
