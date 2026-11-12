@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional, List, Union
 from pydantic import BaseModel, Field
 
 
@@ -224,3 +224,54 @@ class RelatorioResponse(BaseModel):
     codigo: Optional[str] = Field(None, description="Código do documento se aplicável")
     secoes: List[RelatorioSecao] = Field(default_factory=list, description="Seções do relatório")
 
+
+
+# ==============================================================================
+# Simulador "E se?" (Issue #8, Adendo v0.2)
+# ==============================================================================
+
+class Regra(BaseModel):
+    id: str = Field(..., description="Identificador da regra simulável, ex: ferias_antecedencia_dias")
+    rotulo: str = Field(..., description="Rótulo exibido da regra")
+    valor: Union[int, float] = Field(..., description="Valor vigente lido do acervo")
+    unidade: str = Field(..., description="Unidade do valor: dias, BRL")
+    fonte: Fonte = Field(..., description="Trecho vigente que fixa a regra")
+
+
+class SimularRequest(BaseModel):
+    regra: str = Field(..., description="Identificador da regra (GET /api/regras)")
+    novo_valor: Union[int, float] = Field(..., gt=0, description="Valor hipotético da regra")
+    cenario: Optional[str] = Field(None, description="Cenário opcional; uma data dd/mm/aaaa nele vira o início de gozo")
+
+
+class MarcoSimulado(BaseModel):
+    marco: str = Field(..., description="Nome do marco, lido do texto da seção")
+    antes: str = Field(..., description="Data ISO do marco com a regra vigente")
+    depois: str = Field(..., description="Data ISO do marco com o valor simulado")
+    muda: bool = Field(..., description="True se a data muda")
+    d_antes: int = Field(..., description="Marco relativo vigente (D-n)")
+    d_depois: int = Field(..., description="Marco relativo simulado (D-n)")
+    fonte: Fonte = Field(..., description="Seção que fixa o marco")
+
+
+class ImpactoSimulado(BaseModel):
+    tipo: str = Field(..., description="conflito_interno, revisar_documento ou muda_aprovador")
+    descricao: str = Field(..., description="Descrição gerada a partir dos valores do acervo")
+    codigo: Optional[str] = Field(None, description="Documento afetado")
+    versao: Optional[str] = Field(None, description="Versão vigente do documento afetado")
+    antes: Optional[str] = Field(None, description="Situação com a regra vigente (muda_aprovador)")
+    depois: Optional[str] = Field(None, description="Situação com o valor simulado (muda_aprovador)")
+    fontes: List[Fonte] = Field(default_factory=list, description="Trechos que sustentam o impacto")
+
+
+class SimularResponse(BaseModel):
+    regra: str
+    valor_atual: Union[int, float]
+    novo_valor: Union[int, float]
+    unidade: str
+    cenario: Optional[str] = Field(None, description="Cenário usado no cálculo")
+    inicio_gozo: Optional[str] = Field(None, description="Data ISO de referência da linha do tempo")
+    linha_do_tempo: List[MarcoSimulado] = Field(default_factory=list)
+    impactos: List[ImpactoSimulado] = Field(default_factory=list)
+    resumo: List[str] = Field(default_factory=list)
+    aviso: str

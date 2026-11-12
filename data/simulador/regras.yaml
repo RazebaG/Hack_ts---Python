@@ -1,0 +1,25 @@
+# Regras simuláveis do "E se?" (BE #8, Adendo v0.2).
+# Este arquivo só aponta ONDE cada regra está no acervo. Valores, datas, marcos,
+# faixas e trechos são lidos do texto dos documentos vigentes em tempo de execução.
+aviso: "Simulação hipotética: não altera os documentos."
+regras:
+  - id: ferias_antecedencia_dias
+    tipo: prazo_dias
+    rotulo: "Antecedência mínima para pedir férias"
+    unidade: dias
+    # Seção que fixa a regra; as irmãs (4.5.x) são os marcos da linha do tempo.
+    fonte: {codigo: NG_111, secao: "4.5.1"}
+    # Exemplo de onde sai o início de gozo (primeira data dd/mm/aaaa da seção).
+    exemplo: {codigo: NG_111, secao: "Anexo C"}
+    limites: {min: 1, max: 90}
+
+  - id: alcada_gerente_max
+    tipo: alcada_valor
+    rotulo: "Alçada máxima do gerente"
+    unidade: BRL
+    # Quadro de faixas de valor x quem aprova.
+    fonte: {codigo: NT_2026-018, secao: "Anexo F"}
+    papel: Gerente
+    # Termo que identifica, nos outros documentos, o valor sujeito à alçada.
+    valor_alvo: "valor global"
+    limites: {min: 0.01, max: 10000000}
