@@ -2,6 +2,7 @@ import re
 from pathlib import Path
 from typing import List, Tuple, Optional
 from app.models import Secao, DocumentoDetalhe
+from app.taxonomia import derivar_camada, derivar_tema
 
 KNOWN_HEADER_KEYS = (
     "Documento:",
@@ -216,6 +217,18 @@ def parse_document_file(file_path: Path) -> DocumentoDetalhe:
     header_data = parse_header(header_part, file_path)
     secoes = parse_sections(body_part, header_data["titulo"])
 
+    camada = derivar_camada(
+        codigo=header_data["codigo"],
+        tipo_nome=header_data["tipo_nome"],
+        vinculado_a=header_data["vinculado_a"],
+    )
+    tema = derivar_tema(
+        codigo=header_data["codigo"],
+        assunto=header_data["assunto"],
+        vinculado_a=header_data["vinculado_a"],
+        referencia=header_data["referencia"],
+    )
+
     return DocumentoDetalhe(
         codigo=header_data["codigo"],
         titulo=header_data["titulo"],
@@ -230,5 +243,7 @@ def parse_document_file(file_path: Path) -> DocumentoDetalhe:
         substituido=header_data["substituido"],
         elaborado_por=header_data["elaborado_por"],
         aprovado_por=header_data["aprovado_por"],
+        camada=camada,
+        tema=tema,
         secoes=secoes,
     )

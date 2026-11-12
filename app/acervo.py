@@ -62,12 +62,15 @@ class AcervoRepository:
         self,
         assunto: Optional[str] = None,
         substituido: Optional[bool] = None,
+        serie: Optional[int] = None,
     ) -> List[DocumentoResumo]:
         resultado = []
         for d in self.documentos:
             if assunto and d.assunto.lower() != assunto.lower():
                 continue
             if substituido is not None and d.substituido != substituido:
+                continue
+            if serie is not None and d.tema.serie != serie:
                 continue
             resumo = DocumentoResumo(
                 codigo=d.codigo,
@@ -83,6 +86,8 @@ class AcervoRepository:
                 substituido=d.substituido,
                 elaborado_por=d.elaborado_por,
                 aprovado_por=d.aprovado_por,
+                camada=d.camada,
+                tema=d.tema,
             )
             resultado.append(resumo)
         return resultado
@@ -110,10 +115,15 @@ class AcervoRepository:
 
         por_assunto: Dict[str, int] = {}
         por_tipo: Dict[str, int] = {}
+        por_grupo: Dict[str, int] = {}
+        por_serie: Dict[str, int] = {}
 
         for d in self.documentos:
             por_assunto[d.assunto] = por_assunto.get(d.assunto, 0) + 1
             por_tipo[d.tipo] = por_tipo.get(d.tipo, 0) + 1
+            por_grupo[d.camada.grupo] = por_grupo.get(d.camada.grupo, 0) + 1
+            serie_rotulo = f"Série {d.tema.serie}" if d.tema.serie is not None else "Sem série"
+            por_serie[serie_rotulo] = por_serie.get(serie_rotulo, 0) + 1
 
         return {
             "total": total,
@@ -121,4 +131,6 @@ class AcervoRepository:
             "substituidos": substituidos,
             "por_assunto": por_assunto,
             "por_tipo": por_tipo,
+            "por_grupo": por_grupo,
+            "por_serie": por_serie,
         }

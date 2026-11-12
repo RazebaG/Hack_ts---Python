@@ -42,9 +42,10 @@ def get_saude():
 def listar_documentos(
     assunto: Optional[str] = Query(None, description="Filtrar por assunto (ex: ferias, inovacao, locacao)"),
     substituido: Optional[bool] = Query(None, description="Filtrar por vigência (True para versões anteriores)"),
+    serie: Optional[int] = Query(None, description="Filtrar por série da norma (ex: 1 para Gente e Cultura)"),
 ):
     """Lista todos os documentos do acervo (vigentes e substituídos)."""
-    return acervo.listar(assunto=assunto, substituido=substituido)
+    return acervo.listar(assunto=assunto, substituido=substituido, serie=serie)
 
 
 @app.get("/api/documentos/{codigo}", response_model=DocumentoDetalhe)
