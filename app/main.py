@@ -16,6 +16,7 @@ from app.acervo import AcervoRepository, get_acervo
 from app.perguntar import PerguntarService
 from app.avaliacoes import AvaliacoesRepository
 from app.routers.inteligencia import router as inteligencia_router
+from app.routers.lotes import router as lotes_router, servico as lotes_servico
 
 app = FastAPI(
     title="Assistente do Arquivo Central de Normas - API",
@@ -39,11 +40,16 @@ app.add_middleware(
 
 # Roteador de Inteligência (Issue #4)
 app.include_router(inteligencia_router)
+# Envio em lote e digitalização (Issue #10)
+app.include_router(lotes_router)
 
 # Inicialização dos repositórios e serviços em memória
 acervo = get_acervo()
 perguntar_service = PerguntarService(acervo)
 avaliacoes_repo = AvaliacoesRepository()
+
+# Documento publicado por lote entra no índice de /api/perguntar
+lotes_servico.registrar_ao_publicar(lambda: perguntar_service.buscador._construir_indice())
 
 
 @app.get("/api/saude", response_model=SaudeResponse)

@@ -143,3 +143,13 @@ Toda citação (`citacoes[]`) e fonte (`fonte` em perspectivas, radar e relatór
 - `confirmado_por`: `"regra"` (classificação determinística do catálogo).
 - `observacao`: Detalhe textual quando `serie` não é definida pelo catálogo (ex.: `"Catálogo §5 não define explicitamente a série para NG_1130 (lacuna L-f)"`).
 - Filtro por série: `GET /api/documentos?serie=1` retorna os documentos da série indicada (ex.: os 7 documentos de férias da Série 1 · Gente e Cultura: 5 vigentes + 2 substituídos).
+
+## Adendo v0.4 (C18) — Envio em lote e digitalização (issue #10)
+
+- `POST /api/lotes` (multipart, campo `arquivos` repetido) → 201 `{id, arquivos[], resumo}`. Até 20 arquivos, 10 MB cada, 50 MB no total (excesso do lote → 413). Tipos: `.md`, `.pdf` com texto, `.jpg`/`.png` (1 página). 1 arquivo = lote de 1.
+- Cada item de `arquivos[]`: `id`, `nome`, `tipo` (`digital`|`foto`), `estado` (`classificado`, `sem_tema`, `revisar`, `publicado`, `erro`), `tema_sugerido{assunto, serie, serie_nome, confianca, motivo, rotulo}`, `tema_escolhido`, `erro{status, mensagem}` (415 tipo, 413 tamanho, 422 leitura/vazio, 409 duplicado), `documento{codigo, versao, titulo, origem}`, `texto_lido`, `linhas[{numero, texto, incerta}]`, `motor`, `revisado`, `avisos[]`. O erro de um arquivo não para os demais.
+- `GET /api/lotes/{id}` → mesmo formato. `resumo.mensagem`, ex.: "3 de 4 arquivos prontos. 1 precisa da sua revisão."
+- `PATCH /api/lotes/{id}/arquivos/{arq}` body `{assunto?, serie?, texto?, revisado?}`: corrige tema (`confirmado_por: "pessoa"`), texto lido (reclassifica) ou marca a revisão da foto.
+- `POST /api/lotes/{id}/publicar` body opcional `{arquivos: [ids]}` → `{lote, resultados[{arquivo, nome, publicado, motivo?}]}`. Bloqueia: sem tema ("Sem tema: escolha um."), foto sem revisão, cabeçalho sem código, duplicado.
+- Publicado entra em `/api/documentos` com `origem` = `upload` (digital) ou `digitalizado` (foto) e no índice de `/api/perguntar`. Documentos do acervo têm `origem: "acervo"`.
+- Fotos: Bedrock Nova Pro (Converse, `BEDROCK_MODEL_OCR`, padrão `amazon.nova-pro-v1:0`; credenciais do ambiente) e Tesseract como reserva. Uma foto por vez.
