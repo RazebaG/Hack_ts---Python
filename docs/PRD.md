@@ -1,26 +1,34 @@
-# PRD — Assistente do Arquivo Central de Normas (ACME, dados sintéticos)
+# PRD — Plataforma de Inteligência Empresarial (HACKA/TS 2026 · Desafio 2)
 
-> **Hipótese de trabalho (reversível):** o material do desafio é um acervo sintético de normas da ACME (catálogo + 14 documentos de Férias, Inovação/Ideias em Campo e Locação de coworking). Construímos um assistente que responde dúvidas sobre essas normas **com citação**, usando a **versão vigente**, e que diz claramente quando algo **não consta nas fontes**. O Lead confirma ou ajusta o recorte com o enunciado oficial.
+Acervo: dados sintéticos da ACME (catálogo + 13 documentos de Férias, Inovação/Ideias em Campo e Locação de coworking) em `RazebaG/Hack_ts---Python/data/acervo/`. Regulamento e critérios: `docs/EVENTO.md` do planejamento.
 
-## Usuário e dor
-Empregado, gestor, GGC/GFI/GCO precisam de respostas rápidas e confiáveis sobre prazos, alçadas, valores e passos. Hoje precisam ler NG + PX + TB + FM e ainda separar versão vigente de substituída.
+## Problema (texto do desafio)
+Documentos extensos e dispersos; consultar exige especialista; consolidar para relatórios executivos custa tempo. Pedem: organizar, sintetizar e destacar o relevante **sob diferentes perspectivas**, com **visuais, gráficos e interação**, **respostas confiáveis** e **acesso rápido** para **decidir**.
 
-## Cena da demo (60 s)
-1. Pergunta: "Até quando preciso pedir férias que começam em 05/05/2027?" → resposta "21/03/2027 (D-45)" citando **PX_1111-001 v1.0.0, Anexo D**.
-2. Pergunta sobre regra que mudou entre versões → resposta usa **NG_111 v3.0.0** e avisa que a v2.0.0 foi substituída.
-3. Pergunta fora das fontes ("Uma mesma pessoa pode elaborar, revisar e aprovar?") → "Não consta nas fontes", sem inventar.
-4. Decodificar `PX_1130-001` → tipo, norma vinculada (NG_1130), série, vigência.
+## Proposta
+Uma plataforma que transforma o acervo em **inteligência por perspectiva**, sempre rastreável até a fonte:
+1. **Painéis por perspectiva** — Jurídico/Contratos, Financeiro, Pessoas (RH), Gestão/Inovação. Cada painel mostra o que importa para aquela área: prazos e marcos (linha do tempo), valores, multas e alçadas (gráficos), responsáveis (matriz), riscos e próximas datas críticas.
+2. **Mapa do acervo** — grafo interativo NG → PX/FM/TB/FL, CTR ↔ NT, versões vigentes × substituídas.
+3. **O que mudou** — comparação entre versões (NG_111 v2 → v3, FM_1111-001 v1 → v2, RG_1100).
+4. **Pergunte ao acervo** — resposta confiável **com citação** (documento·versão·seção), só da versão vigente, e "não consta nas fontes" quando não houver evidência.
+5. **Relatório executivo** — síntese de uma perspectiva ou documento pronta para apresentar (exportar/imprimir), com fontes.
 
-## Requisitos P0
-- Ingestão do acervo em `data/acervo/` → documentos estruturados (código, título, tipo, versão, fase, vigência/aprovação, vinculado_a/referência, elaborado/aprovado por, seções).
-- Busca com citação (documento, versão, seção, trecho), preferindo **Vigente**; versões substituídas só com aviso.
-- Abstenção: sem evidência suficiente → `consta=false`.
-- Frontend: tela de pergunta com citações clicáveis, catálogo e leitor de documento, decodificador de código.
-- Avaliação automática com perguntas das seções "Perguntas frequentes" do acervo (meta: ≥ 80% corretas com citação certa; 100% das perguntas "não consta" abstidas).
+Diferencial: cada número, prazo ou frase de qualquer gráfico abre a passagem exata de origem (confiança verificável) e alerta quando a fonte é uma versão substituída.
 
-## P1 / P2
-- P1: resposta por perfil (empregado/gestor/GGC), jornadas de referência, calculadora de marcos D-n.
-- P2: LLM para redação da resposta (opcional por variável de ambiente; sem chave → resposta extrativa).
+## Cena da demo (≤ 2 min dentro do pitch)
+1. Abre o painel **Financeiro**: valor global do coworking R$ 18.250,00, alçada de diretor (NG_012 via NT_2026-018), multa de inexecução R$ 912,50 — clique leva ao Apêndice B do CTR_2026-012.
+2. Painel **Pessoas**: linha do tempo D-45 → D-3 de férias que começam em 05/05/2027 (21/03, 31/03, 05/04, 15/04, 30/04).
+3. **O que mudou** NG_111 v2 → v3.
+4. Pergunta "Uma mesma pessoa pode elaborar, revisar e aprovar?" → "não consta nas fontes".
+5. Gera o **relatório executivo** da perspectiva Jurídico/Contratos.
 
-## Fora do escopo
-Dados reais, autenticação, deploy pago.
+## P0 (sem isso não há demo)
+- Ingestão estruturada + catálogo (backend #1); perguntas com citação e abstenção (#2); decodificador de código (#3); **extração de inteligência: prazos, valores, responsáveis, relações e diferenças entre versões (#4)**.
+- Frontend: base com mock (#1); **painéis por perspectiva + mapa + o que mudou + relatório (#3)**; integração real (#2).
+## P1
+PostgreSQL (stack BBTS) para persistência; upload de documento novo com ingestão automática; LLM opcional (sem chave tudo funciona); acessibilidade AA.
+## P2
+Deploy AWS; perfis de acesso.
+
+## Avaliação interna
+`eval/perguntas.yaml` (≥ 15 perguntas das FAQs do acervo): ≥ 80% corretas com citação certa; 100% das "não consta" abstidas. Valores-chave do painel conferidos contra o texto.
