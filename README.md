@@ -13,8 +13,10 @@ pytest -q
 ## Agente do Teams (Microsoft 365 Agents SDK)
 
 O agente fica em `app/canais/teams.py`. Ele só cuida da apresentação. Cada mensagem é enviada a
-`POST /api/perguntar`, e a resposta (texto, citações, avisos, próxima ação) vira um
-**Adaptive Card**. Os botões **Útil** / **Não útil** gravam em `POST /api/avaliacoes` com
+`POST /api/perguntar`, a resposta vira o **cartão neutro** de `app/canais/cartao.py` (o mesmo do Slack)
+e esse cartão é traduzido para **Adaptive Card**. Se a API recusar a pergunta (4xx), o agente pede para
+reformular; se a API estiver fora (5xx ou sem conexão), avisa e manda o link do painel. Um corpo que não é
+atividade válida em `/api/messages` recebe **400**. Os botões **Útil** / **Não útil** gravam em `POST /api/avaliacoes` com
 `canal: teams`. O agente confirma na hora com "Consultando o acervo…" e manda o cartão na mensagem seguinte.
 
 Mensagens aceitas (mensagem direta ao agente):
@@ -22,7 +24,7 @@ Mensagens aceitas (mensagem direta ao agente):
 | Mensagem | O que faz |
 |---|---|
 | `acervo <pergunta>` ou só a pergunta | Responde com o cartão de `/api/perguntar` |
-| `acervo radar [tema]` | Lista os itens de `/api/radar` filtrados pelo tema. Enquanto o endpoint não existir, manda o link do radar no painel |
+| `acervo radar [tema]` | Lista até 3 itens de `GET /api/radar` (título, explicação, fontes, link "Ver lado a lado") filtrados pelo tema, sem diferenciar acentos (`férias` = `ferias`). Sem itens, mostra um texto de estado |
 | `acervo ajuda` | Mostra os comandos |
 
 ### Configuração

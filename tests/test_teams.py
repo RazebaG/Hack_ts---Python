@@ -1,6 +1,7 @@
 """Testes do agente Teams (S2, RF33): SDK simulado e API em processo, sem rede."""
 
 import asyncio
+import html
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
@@ -10,22 +11,26 @@ import pytest
 import yaml
 from fastapi.testclient import TestClient
 
-from app.canais import teams
+from app.canais import ClienteAPI, ServicoCanais, slack, teams
+from app.canais.cartao import MAX_CITACOES
 from app.canais.teams import (
     ADAPTIVE_CARD_CONTENT_TYPE,
     AgenteAcervo,
     ClienteAcervo,
     Comando,
     Config,
-    MAX_CITACOES,
     MAX_TRECHO,
     TEXTO_API_FORA,
+    TEXTO_AVALIACAO_RECUSADA,
     TEXTO_AVALIACAO_REGISTRADA,
+    TEXTO_PERGUNTA_RECUSADA,
+    TEXTO_RADAR_VAZIO,
     TEXTO_RESPONDENDO,
     cartao_radar,
     cartao_resposta,
     filtrar_radar,
     interpretar,
+    normalizar,
     tratar_turno,
 )
 from app.main import app as api
@@ -154,12 +159,25 @@ def test_cartao_resposta_tem_as_cinco_partes():
     assert all(a["data"]["resposta_id"] == "resp_abc" and a["data"]["acao"] == "avaliar" for a in submits)
 
 
-def test_cartao_nao_consta_sem_botoes_de_avaliacao():
+def test_cartao_nao_consta_segue_o_cartao_neutro():
     resposta = {"resposta_id": "r", "resposta": "O acervo não trata disso.", "consta": False,
-                "citacoes": [], "avisos": [], "proxima_acao": "Reformule."}
+                "citacoes": [{"codigo": "X", "versao": "1", "secao": "1", "trecho": "t"}],
+                "avisos": [], "proxima_acao": "Reformule."}
     card = cartao_resposta(resposta, "pergunta", PAINEL)
     assert card["body"][0]["text"] == resposta["resposta"]
-    assert [a["title"] for a in card["actions"]] == ["Abrir no painel"]
+    assert not [b for b in card["body"] if b["type"] == "Container"]  # sem citações quando não consta
+    neutro = teams.montar_cartao(resposta, PAINEL)
+    assert [a["title"] for a in card["actions"][1:]] == [b.rotulo for b in neutro.botoes]
+
+
+def test_adaptive_card_vem_do_cartao_neutro():
+    """O adaptador só traduz `montar_cartao` (o mesmo cartão do Slack)."""
+    neutro = teams.montar_cartao(RESPOSTA, PAINEL)
+    card = teams.adaptive_card(neutro, "Até quando?", PAINEL, perfil="empregado")
+    assert card == cartao_resposta(RESPOSTA, "Até quando?", PAINEL, perfil="empregado")
+    assert card["body"][0]["text"] == neutro.conclusao
+    rotulos = [c["items"][0]["text"].split("](")[0].lstrip("[") for c in card["body"] if c["type"] == "Container"]
+    assert rotulos == [c.referencia for c in neutro.citacoes]
 
 
 # --------------------------------------------------------------------------- #
@@ -175,23 +193,64 @@ def test_turno_confirma_antes_e_envia_cartao():
     assert any("21/03/2027" in t for t in blocos_de_texto(card))
 
 
+def _resumo_web(resp):
+    return {
+        "conclusao": resp["resposta"],
+        "citacoes": [f"{c['codigo']} · v{c['versao']} · {c['secao']}" for c in resp["citacoes"][:MAX_CITACOES]]
+        if resp["consta"] else [],
+        "avisos": resp["avisos"],
+        "proxima_acao": resp.get("proxima_acao"),
+        "botoes": [("Útil", True), ("Não útil", False)] if resp.get("resposta_id") else [],
+    }
+
+
+def _resumo_teams(card):
+    corpo = card["body"]
+    textos_soltos = [b["text"] for b in corpo[1:] if b["type"] == "TextBlock"]
+    proxima = [t.removeprefix("Próxima ação: ") for t in textos_soltos if t.startswith("Próxima ação: ")]
+    return {
+        "conclusao": corpo[0]["text"],
+        "citacoes": [c["items"][0]["text"].split("](")[0].lstrip("[") for c in corpo if c["type"] == "Container"],
+        "avisos": [t.removeprefix("⚠️ ") for t in textos_soltos if t.startswith("⚠️ ")],
+        "proxima_acao": proxima[0] if proxima else None,
+        "botoes": [(a["title"], a["data"]["util"]) for a in card["actions"] if a["type"] == "Action.Submit"],
+    }
+
+
+def _resumo_slack(payload):
+    blocos = payload["blocks"]
+    secoes = [html.unescape(b["text"]["text"]) for b in blocos if b["type"] == "section"]
+    contextos = [html.unescape(b["elements"][0]["text"]) for b in blocos if b["type"] == "context"]
+    proxima = [t.removeprefix(":arrow_right: ") for t in contextos if t.startswith(":arrow_right: ")]
+    rotulos = {"avaliacao_util": True, "avaliacao_nao_util": False}
+    botoes = [e for b in blocos if b["type"] == "actions" for e in b["elements"] if e["action_id"] in rotulos]
+    return {
+        "conclusao": secoes[0],
+        "citacoes": [s.split("*")[1] for s in secoes[1:]],
+        "avisos": [t.removeprefix(":warning: ") for t in contextos if t.startswith(":warning: ")],
+        "proxima_acao": proxima[0] if proxima else None,
+        "botoes": [(e["text"]["text"], rotulos[e["action_id"]]) for e in botoes],
+    }
+
+
 @pytest.mark.parametrize("caso", PERGUNTAS, ids=[p["id"] for p in PERGUNTAS])
-def test_paridade_web_teams(caso):
-    """RNF17: mesmo texto, mesmas citações e mesmo link que a web (/api/perguntar)."""
+def test_paridade_web_slack_teams(caso):
+    """RNF17: web, Slack e Teams mostram o mesmo texto, citações, avisos, próxima ação e botões."""
     pergunta, perfil = caso["pergunta"], caso.get("perfil")
     web_resp = web.post("/api/perguntar", json={"pergunta": pergunta, "perfil": perfil}).json()
+
+    servico = ServicoCanais(ClienteAPI(base_url="http://teste", http=TestClient(api)), PAINEL)
+    slack_payload = slack.renderizar([servico.perguntar(pergunta, perfil)])
 
     ctx = contexto(f"acervo {pergunta}")
     asyncio.run(tratar_turno(ctx, AgenteAcervo(cliente_api(), Config(api_url=CONFIG.api_url,
                                                                       painel_url=PAINEL, perfil=perfil))))
     [card] = cartoes(ctx)
 
-    assert card["body"][0]["text"] == web_resp["resposta"]
-    rotulos = [c["items"][0]["text"].split("](")[0].lstrip("[") for c in card["body"] if c["type"] == "Container"]
-    assert rotulos == [f"{c['codigo']} · v{c['versao']} · {c['secao']}" for c in web_resp["citacoes"][:MAX_CITACOES]]
+    esperado = _resumo_web(web_resp)
+    assert _resumo_slack(slack_payload) == esperado
+    assert _resumo_teams(card) == esperado
     assert card["actions"][0]["url"] == teams.link_pergunta(PAINEL, pergunta)
-    tem_botoes = any(a["type"] == "Action.Submit" for a in card["actions"])
-    assert tem_botoes == web_resp["consta"]
 
 
 def test_botao_util_grava_avaliacao_canal_teams():
@@ -225,6 +284,32 @@ def test_api_fora_mantem_o_agente_vivo():
     assert textos(ctx) == [TEXTO_RESPONDENDO, TEXTO_API_FORA.format(painel_url=PAINEL)]
 
 
+@pytest.mark.parametrize("status", [500, 502, 503])
+def test_5xx_e_api_fora(status):
+    ctx = contexto("acervo prazo de férias")
+    agente = AgenteAcervo(cliente_mock(lambda r: httpx.Response(status, text="erro")), CONFIG)
+    asyncio.run(tratar_turno(ctx, agente))
+    assert textos(ctx) == [TEXTO_RESPONDENDO, TEXTO_API_FORA.format(painel_url=PAINEL)]
+
+
+@pytest.mark.parametrize("status", [400, 413, 422])
+def test_4xx_fala_da_pergunta_e_nao_de_api_fora(status):
+    ctx = contexto("acervo prazo de férias")
+    agente = AgenteAcervo(cliente_mock(lambda r: httpx.Response(status, json={"detail": "inválida"})), CONFIG)
+    asyncio.run(tratar_turno(ctx, agente))
+    assert textos(ctx) == [TEXTO_RESPONDENDO, TEXTO_PERGUNTA_RECUSADA]
+
+
+def test_avaliacao_4xx_e_5xx():
+    valor = {"acao": "avaliar", "resposta_id": "r", "util": True}
+    ctx = contexto(valor=valor)
+    asyncio.run(tratar_turno(ctx, AgenteAcervo(cliente_mock(lambda r: httpx.Response(422, json={})), CONFIG)))
+    assert textos(ctx) == [TEXTO_AVALIACAO_RECUSADA]
+    ctx = contexto(valor=valor)
+    asyncio.run(tratar_turno(ctx, AgenteAcervo(cliente_mock(lambda r: httpx.Response(503)), CONFIG)))
+    assert textos(ctx) == [TEXTO_API_FORA.format(painel_url=PAINEL)]
+
+
 def test_ajuda_nao_chama_a_api():
     def handler(request):
         raise AssertionError("não deveria chamar a API")
@@ -238,43 +323,98 @@ def test_ajuda_nao_chama_a_api():
 # Radar
 # --------------------------------------------------------------------------- #
 
+def _fonte(codigo, secao):
+    return {"codigo": codigo, "versao": "3.0.0", "secao": secao, "trecho": "t",
+            "camada": {"sigla": "NG", "grupo": "Normativo"}}
+
+
 ITENS_RADAR = [
-    {"id": "r1", "titulo": "Antecedência mudou", "tema": {"assunto": "ferias", "serie_nome": "Gente e Cultura"},
-     "fontes": [{"codigo": "NG_111", "versao": "3.0.0", "secao": "Anexo F",
-                 "camada": {"sigla": "NG", "grupo": "Normativo"}}]},
-    {"id": "r2", "titulo": "Norma ausente", "tema": {"assunto": "locacao"},
-     "fonte": {"codigo": "CTR_2026-012", "versao": "1.0.0", "secao": "Cláusula Sétima"}},
+    {"id": "r1", "tipo": "versao_substituida", "status": "divergente", "severidade": "alta",
+     "titulo": "Antecedência mudou", "explicacao": "A v3.0.0 passou de 30 para 45 dias.",
+     "tema": {"assunto": "ferias", "serie_nome": "Gente e Cultura"}, "fontes": [_fonte("NG_111", "Anexo F")]},
+    {"id": "r2", "tipo": "referencia_ausente", "status": "atencao", "severidade": "media",
+     "titulo": "Norma ausente", "explicacao": "O contrato cita um documento fora do acervo.",
+     "tema": {"assunto": "locacao"}, "fontes": [{"codigo": "CTR_2026-012", "versao": "1.0.0",
+                                                 "secao": "Cláusula Sétima", "trecho": "t"}]},
 ]
 
 
-def test_filtrar_radar_por_tema():
-    assert [i["id"] for i in filtrar_radar(ITENS_RADAR, "ferias")] == ["r1"]
-    assert [i["id"] for i in filtrar_radar(ITENS_RADAR, "")] == ["r1", "r2"]
+def _blocos(card):
+    return [b for b in card["body"] if b["type"] == "Container"]
 
 
-def test_cartao_radar_um_bloco_por_item():
+def test_normalizar_remove_acentos_e_caixa():
+    assert normalizar("  Férias ") == "ferias"
+    assert normalizar("LOCAÇÃO") == "locacao"
+
+
+@pytest.mark.parametrize("tema, esperado", [
+    ("ferias", ["r1"]), ("férias", ["r1"]), ("FÉRIAS", ["r1"]), ("locação", ["r2"]),
+    ("gente e cultura", ["r1"]), ("", ["r1", "r2"]), ("drones", []),
+])
+def test_filtrar_radar_por_tema_ignora_acentos(tema, esperado):
+    assert [i["id"] for i in filtrar_radar(ITENS_RADAR, tema)] == esperado
+
+
+def test_filtrar_radar_normaliza_o_lado_do_item():
+    item = {"id": "x", "tema": {"assunto": "Locação"}}
+    assert filtrar_radar([item], "locacao") == [item]
+
+
+def test_cartao_radar_um_bloco_por_item_com_explicacao():
     card = cartao_radar(ITENS_RADAR, "", PAINEL)
-    blocos = [b for b in card["body"] if b["type"] == "Container"]
+    blocos = _blocos(card)
     assert len(blocos) == 2
     textos_r1 = [i["text"] for i in blocos[0]["items"]]
+    assert textos_r1[0] == "Antecedência mudou"
+    assert ITENS_RADAR[0]["explicacao"] in textos_r1
     assert "NG_111 · v3.0.0 · Anexo F (NG · Normativo)" in textos_r1
     assert any(f"{PAINEL}/radar?item=r1" in t for t in textos_r1)
+    assert any(f"{PAINEL}/radar?item=r2" in t for t in [i["text"] for i in blocos[1]["items"]])
+
+
+def test_cartao_radar_vazio_mostra_texto_de_estado():
+    card = cartao_radar([], "drones", PAINEL)
+    assert not _blocos(card)
+    assert card["body"] == [{"type": "TextBlock", "text": TEXTO_RADAR_VAZIO.format(tema="drones"), "wrap": True}]
+    assert card["actions"][0]["url"] == f"{PAINEL}/radar?tema=drones"
 
 
 def test_radar_pela_api_simulada():
-    ctx = contexto("acervo radar locacao")
-    agente = AgenteAcervo(cliente_mock(lambda r: httpx.Response(200, json=ITENS_RADAR)), CONFIG)
+    ctx = contexto("acervo radar locação")
+    resposta = {"gerado_em": "2026-11-12T00:00:00Z", "resumo": {}, "itens": ITENS_RADAR}
+    agente = AgenteAcervo(cliente_mock(lambda r: httpx.Response(200, json=resposta)), CONFIG)
     asyncio.run(tratar_turno(ctx, agente))
     [card] = cartoes(ctx)
-    assert [b["items"][0]["text"] for b in card["body"] if b["type"] == "Container"] == ["Norma ausente"]
-    assert card["actions"][0]["url"] == f"{PAINEL}/radar?tema=locacao"
+    assert [b["items"][0]["text"] for b in _blocos(card)] == ["Norma ausente"]
+    assert card["actions"][0]["url"] == f"{PAINEL}/radar?tema=loca%C3%A7%C3%A3o"
 
 
-def test_radar_sem_endpoint_aponta_para_o_painel():
-    ctx = contexto("acervo radar ferias")
-    asyncio.run(tratar_turno(ctx, AgenteAcervo(cliente_api(), CONFIG)))  # /api/radar ainda não existe
-    assert not cartoes(ctx)
-    assert f"{PAINEL}/radar?tema=ferias" in textos(ctx)[-1]
+def test_radar_contra_o_api_radar_real():
+    """`acervo radar férias` (com acento) contra o GET /api/radar da main, em processo."""
+    itens_api = web.get("/api/radar").json()["itens"]
+    esperados = [i for i in itens_api if "ferias" in normalizar(i["tema"]["assunto"] if i.get("tema") else "")]
+    assert esperados, "o radar real deveria ter itens de férias"
+
+    ctx = contexto("acervo radar férias")
+    asyncio.run(tratar_turno(ctx, AgenteAcervo(cliente_api(), CONFIG)))
+    assert ctx.enviadas[0] == TEXTO_RESPONDENDO
+    [card] = cartoes(ctx)
+    blocos = _blocos(card)
+    assert len(blocos) == min(len(esperados), teams.MAX_ITENS_RADAR)
+    titulos = {i["titulo"]: i for i in esperados}
+    for bloco in blocos:
+        textos_bloco = [t["text"] for t in bloco["items"]]
+        item = titulos[textos_bloco[0]]
+        assert item["explicacao"] in textos_bloco
+        assert any(f"{PAINEL}/radar?item=" in t for t in textos_bloco)
+
+
+def test_radar_real_sem_itens_para_o_tema():
+    ctx = contexto("acervo radar tema-que-nao-existe")
+    asyncio.run(tratar_turno(ctx, AgenteAcervo(cliente_api(), CONFIG)))
+    [card] = cartoes(ctx)
+    assert card["body"][0]["text"] == TEXTO_RADAR_VAZIO.format(tema="tema-que-nao-existe")
 
 
 # --------------------------------------------------------------------------- #
@@ -329,3 +469,42 @@ def test_sdk_processa_atividade_expect_replies():
     card = enviadas[1]["attachments"][0]
     assert card["contentType"] == ADAPTIVE_CARD_CONTENT_TYPE
     assert card["content"]["type"] == "AdaptiveCard"
+
+
+@pytest.mark.parametrize("corpo", [
+    b'{"foo": 1}',
+    b"nao e json",
+    b"[1, 2]",
+    b'{"type": "message", "serviceUrl": "http://x", "conversation": {}}',
+])
+def test_corpo_invalido_em_api_messages_responde_400(corpo):
+    pytest.importorskip("microsoft_agents.hosting.aiohttp")
+    from aiohttp.test_utils import TestClient as AioCliente, TestServer
+
+    async def rodar():
+        async with AioCliente(TestServer(teams.criar_app(CONFIG, cliente_api()))) as cliente:
+            r = await cliente.post("/api/messages", data=corpo, headers={"Content-Type": "application/json"})
+            return r.status, await r.json()
+
+    status, json_resp = asyncio.run(rodar())
+    assert status == 400 and json_resp["erro"]
+
+
+def test_corpo_valido_em_api_messages_passa_pelo_sdk():
+    pytest.importorskip("microsoft_agents.hosting.aiohttp")
+    from aiohttp.test_utils import TestClient as AioCliente, TestServer
+
+    atividade = {
+        "type": "message", "id": "1", "channelId": "msteams", "serviceUrl": "http://localhost",
+        "deliveryMode": "expectReplies", "text": "acervo ajuda",
+        "from": {"id": "u"}, "recipient": {"id": "agente"}, "conversation": {"id": "c"},
+    }
+
+    async def rodar():
+        async with AioCliente(TestServer(teams.criar_app(CONFIG, cliente_api()))) as cliente:
+            r = await cliente.post("/api/messages", json=atividade)
+            return r.status, await r.json()
+
+    status, corpo = asyncio.run(rodar())
+    assert status == 200
+    assert corpo["activities"][0]["text"] == teams.TEXTO_AJUDA
