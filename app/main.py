@@ -2,8 +2,19 @@ from typing import List, Optional
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.models import DocumentoResumo, DocumentoDetalhe, SaudeResponse
+from app.models import (
+    DocumentoResumo,
+    DocumentoDetalhe,
+    SaudeResponse,
+    PerguntaRequest,
+    PerguntaResponse,
+    AvaliacaoRequest,
+    AvaliacaoResponse,
+    AvaliacaoResumoResponse,
+)
 from app.acervo import AcervoRepository
+from app.perguntar import PerguntarService
+from app.avaliacoes import AvaliacoesRepository
 
 app = FastAPI(
     title="Assistente do Arquivo Central de Normas - API",
@@ -25,8 +36,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Inicialização do repositório em memória
+# Inicialização dos repositórios e serviços em memória
 acervo = AcervoRepository()
+perguntar_service = PerguntarService(acervo)
+avaliacoes_repo = AvaliacoesRepository()
 
 
 @app.get("/api/saude", response_model=SaudeResponse)
@@ -68,3 +81,22 @@ def obter_documento(
 def get_estatisticas():
     """Retorna contadores consolidados do acervo por vigência, tipo e assunto."""
     return acervo.estatisticas()
+
+
+@app.post("/api/perguntar", response_model=PerguntaResponse)
+def post_perguntar(req: PerguntaRequest):
+    """Responde perguntas sobre o acervo com citação, versão vigente e abstenção (C13, C15, RF02)."""
+    return perguntar_service.responder(req)
+
+
+@app.post("/api/avaliacoes", response_model=AvaliacaoResponse, status_code=201)
+def registrar_avaliacao(req: AvaliacaoRequest):
+    """Registra uma avaliação de resposta (C14, RF39, RNF16)."""
+    return avaliacoes_repo.registrar(req)
+
+
+@app.get("/api/avaliacoes/resumo", response_model=AvaliacaoResumoResponse)
+def get_avaliacoes_resumo():
+    """Retorna resumo consolidado de avaliações: total, úteis e por canal (C14, RF39)."""
+    return avaliacoes_repo.resumo()
+

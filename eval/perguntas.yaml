@@ -1,0 +1,197 @@
+# Dataset de avaliação de perguntas e respostas sobre o acervo normativo (HACKA/TS 2026)
+# Mínimo de 15 perguntas tiradas de "Perguntas frequentes" / "Apêndice J" e cenas 1-3 do PRD.
+# Avaliação >= 80% com citação correta e 100% de abstenção correta.
+
+perguntas:
+  # Cena 1 do PRD: D-45 de 05/05/2027 = 21/03/2027 citando PX_1111-001 (ou NG_111 Anexo C)
+  - id: cena_1_prazo_ferias
+    pergunta: "Até quando peço férias que começam em 05/05/2027?"
+    perfil: "empregado"
+    consta: true
+    codigo_esperado: "PX_1111-001"
+    resposta_curta_esperada: "21/03/2027"
+    origem: "PRD Cena 1 / PX_1111-001 Anexo D"
+
+  # Cena 2 do PRD: aviso de NG_111 v2.0.0 substituída
+  - id: cena_2_antecedencia_aviso
+    pergunta: "Qual a antecedência mínima para pedir férias?"
+    perfil: "rh"
+    consta: true
+    codigo_esperado: "NG_111"
+    resposta_curta_esperada: "45 dias"
+    aviso_esperado: "NG_111 v2.0.0 foi substituída pela v3.0.0"
+    origem: "PRD Cena 2 / NG_111 Anexo F"
+
+  # Cena 3 do PRD: Abstenção (regra de segregação de funções do catálogo excluído)
+  - id: cena_3_abstencao_mesma_pessoa
+    pergunta: "Uma mesma pessoa pode elaborar, revisar e aprovar?"
+    perfil: "gestor"
+    consta: false
+    codigo_esperado: null
+    resposta_curta_esperada: "não trata disso"
+    origem: "PRD Cena 3 / Catálogo §3 (fora do índice)"
+
+  # Perguntas frequentes do NG_111 Anexo F
+  - id: faq_ng111_fracionamento
+    pergunta: "Em quantos períodos posso dividir as férias?"
+    perfil: "empregado"
+    consta: true
+    codigo_esperado: "NG_111"
+    resposta_curta_esperada: "3 períodos"
+    origem: "NG_111 Anexo F"
+
+  - id: faq_ng111_abono
+    pergunta: "Posso converter dias de férias em abono?"
+    perfil: "empregado"
+    consta: true
+    codigo_esperado: "NG_111"
+    resposta_curta_esperada: "10 dias"
+    origem: "NG_111 Anexo F"
+
+  - id: faq_ng111_decisao_gestor
+    pergunta: "Em quanto tempo decido um pedido de férias?"
+    perfil: "gestor"
+    consta: true
+    codigo_esperado: "NG_111"
+    resposta_curta_esperada: "7 dias"
+    origem: "NG_111 Anexo F"
+
+  - id: faq_ng111_limite_equipe
+    pergunta: "Quantas pessoas da equipe podem tirar férias juntas?"
+    perfil: "gestor"
+    consta: true
+    codigo_esperado: "NG_111"
+    resposta_curta_esperada: "30%"
+    origem: "NG_111 Anexo F"
+
+  - id: faq_ng111_pagamento
+    pergunta: "Quando a GFI paga as férias?"
+    perfil: "financeiro"
+    consta: true
+    codigo_esperado: "NG_111"
+    resposta_curta_esperada: "3 dias"
+    origem: "NG_111 Anexo F"
+
+  - id: ng111_aviso_ggc
+    pergunta: "Até quando a GGC emite o aviso de férias?"
+    perfil: "rh"
+    consta: true
+    codigo_esperado: "NG_111"
+    resposta_curta_esperada: "35 dias"
+    origem: "NG_111 4.5.3"
+
+  # Perguntas frequentes do CTR_2026-012 Apêndice J
+  - id: faq_ctr_vigencia
+    pergunta: "Qual a vigência do contrato de coworking?"
+    perfil: "juridico"
+    consta: true
+    codigo_esperado: "CTR_2026-012"
+    resposta_curta_esperada: "30/11/2026 a 29/04/2027"
+    origem: "CTR_2026-012 Apêndice J"
+
+  - id: faq_ctr_valor
+    pergunta: "Qual o valor total do contrato de coworking?"
+    perfil: "diretoria"
+    consta: true
+    codigo_esperado: "CTR_2026-012"
+    resposta_curta_esperada: "18.250"
+    origem: "CTR_2026-012 Apêndice J / Cláusula Sétima"
+
+  - id: faq_ctr_multa_inexecucao
+    pergunta: "Qual a multa por inexecução do coworking?"
+    perfil: "financeiro"
+    consta: true
+    codigo_esperado: "CTR_2026-012"
+    resposta_curta_esperada: "912,50"
+    origem: "CTR_2026-012 Apêndice B"
+
+  - id: faq_ctr_pagamento_aluguel
+    pergunta: "Até quando a GFI paga o aluguel?"
+    perfil: "financeiro"
+    consta: true
+    codigo_esperado: "CTR_2026-012"
+    resposta_curta_esperada: "dia 8"
+    origem: "CTR_2026-012 Cláusula Décima"
+
+  - id: faq_ctr_rescisao
+    pergunta: "Qual a multa se a ACME rescindir antes do 90º dia?"
+    perfil: "juridico"
+    consta: true
+    codigo_esperado: "CTR_2026-012"
+    resposta_curta_esperada: "aluguel"
+    origem: "CTR_2026-012 Cláusula Décima Terceira"
+
+  - id: faq_ctr_reajuste
+    pergunta: "O contrato de coworking tem reajuste?"
+    perfil: "juridico"
+    consta: true
+    codigo_esperado: "CTR_2026-012"
+    resposta_curta_esperada: "sem reajuste"
+    origem: "CTR_2026-012 Cláusula Décima Segunda"
+
+  - id: faq_ctr_sublocar
+    pergunta: "Posso sublocar o espaço de coworking?"
+    perfil: "juridico"
+    consta: true
+    codigo_esperado: "CTR_2026-012"
+    resposta_curta_esperada: "vedad"
+    origem: "CTR_2026-012 Apêndice J / Cláusula Décima Sexta"
+
+  # Procedimento PX_1111-001
+  - id: px_nao_assinar_aviso
+    pergunta: "O que acontece se o empregado não assinar o aviso até D-30?"
+    perfil: "rh"
+    consta: true
+    codigo_esperado: "PX_1111-001"
+    resposta_curta_esperada: "notifica"
+    origem: "PX_1111-001 8.5.2"
+
+  # Notas Técnicas e Inovação
+  - id: nt018_quem_aprova
+    pergunta: "Quem aprova a contratação do coworking?"
+    perfil: "diretoria"
+    consta: true
+    codigo_esperado: "NT_2026-018"
+    resposta_curta_esperada: "DIRAF"
+    origem: "NT_2026-018 Seção 10"
+
+  - id: nt021_orcamento
+    pergunta: "Qual o orçamento do programa Ideias em Campo 2027?"
+    perfil: "diretoria"
+    consta: true
+    codigo_esperado: "NT_2026-021"
+    resposta_curta_esperada: "96.000"
+    origem: "NT_2026-021 Seção 4.5"
+
+  - id: faq_rg1100_equipe
+    pergunta: "Uma equipe do Ideias em Campo pode ter mais de 4 pessoas?"
+    perfil: "empregado"
+    consta: true
+    codigo_esperado: "RG_1100"
+    resposta_curta_esperada: "máximo 4 pessoas"
+    origem: "RG_1100 Anexo J / 4.1.3"
+
+  - id: faq_ng1130_portal
+    pergunta: "Onde registro uma ideia de inovação?"
+    perfil: "empregado"
+    consta: true
+    codigo_esperado: "NG_1130"
+    resposta_curta_esperada: "Portal de Ideias"
+    origem: "NG_1130 Anexo H"
+
+  # Abstenções adicionais para garantir 100% de precisão de abstenção
+  - id: abstencao_alimentacao
+    pergunta: "Qual o valor do benefício alimentação pago aos empregados?"
+    perfil: "empregado"
+    consta: false
+    codigo_esperado: null
+    resposta_curta_esperada: "não trata disso"
+    origem: "Tema inexistente no acervo"
+
+  - id: abstencao_estacionamento
+    pergunta: "Quem fiscaliza o estacionamento da sede?"
+    perfil: "geral"
+    consta: false
+    codigo_esperado: null
+    resposta_curta_esperada: "não trata disso"
+    origem: "Tema inexistente no acervo"
