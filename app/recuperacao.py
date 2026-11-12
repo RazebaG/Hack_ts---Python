@@ -1,10 +1,18 @@
+import json
+import logging
 import math
 import os
 import re
 import unicodedata
 from collections import Counter
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
+
+try:
+    import numpy as np
+except ImportError:
+    np = None
 
 try:
     from nltk.stem.snowball import PortugueseStemmer
@@ -30,6 +38,12 @@ except ImportError:
 from app.acervo import AcervoRepository
 from app.models import Camada, Citacao, Secao
 from app.taxonomia import derivar_camada
+from app.bedrock import gerar_embeddings, get_llm_provider
+
+logger = logging.getLogger(__name__)
+
+CACHE_DIR = Path(__file__).resolve().parent.parent / "data" / "cache"
+EMBEDDINGS_CACHE_FILE = CACHE_DIR / "embeddings.json"
 
 STOPWORDS = {
     "a", "ao", "aos", "as", "ate", "com", "como", "da", "das", "de", "do", "dos",
@@ -142,7 +156,41 @@ class BuscadorLexico:
         self.df: Counter = Counter()
         self.N: int = 0
         self.avgdl: float = 0.0
+        self.dense_embeddings: Dict[str, List[float]] = {}
         self._construir_indice()
+        self._carregar_ou_gerar_embeddings()
+
+    def _carregar_ou_gerar_embeddings(self) -> None:
+        """Carrega embeddings em cache (data/cache/) ou gera via Bedrock Cohere Embed v4."""
+        if get_llm_provider() != "bedrock":
+            return
+
+        if EMBEDDINGS_CACHE_FILE.exists():
+            try:
+                with open(EMBEDDINGS_CACHE_FILE, "r", encoding="utf-8") as f:
+                    self.dense_embeddings = json.load(f)
+                logger.info(f"Carregados {len(self.dense_embeddings)} embeddings do cache.")
+                return
+            except Exception as e:
+                logger.warning(f"Erro ao ler cache de embeddings ({type(e).__name__}); gerando novo...")
+
+        try:
+            CACHE_DIR.mkdir(parents=True, exist_ok=True)
+            texts = [
+                f"{s.codigo} {s.titulo} {s.secao_id}: {s.texto[:300]}"
+                for s in self.sections
+            ]
+            embs = gerar_embeddings(texts, input_type="search_document")
+            if embs and len(embs) == len(self.sections):
+                self.dense_embeddings = {
+                    f"{s.codigo}@{s.versao}#{s.secao_id}": vec
+                    for s, vec in zip(self.sections, embs)
+                }
+                with open(EMBEDDINGS_CACHE_FILE, "w", encoding="utf-8") as f:
+                    json.dump(self.dense_embeddings, f)
+                logger.info(f"Cache de embeddings salvo com sucesso ({len(self.dense_embeddings)} vetores).")
+        except Exception as e:
+            logger.warning(f"Falha ao gerar índice denso ({type(e).__name__}); operando em BM25 puro.")
 
     def _construir_indice(self) -> None:
         self.sections.clear()
@@ -301,6 +349,35 @@ class BuscadorLexico:
         if not any(sc >= LIMIAR_SCORE and cov >= LIMIAR_COBERTURA for sc, cov, _ in scored[:5]):
             return False, [], []
 
+        # Recuperação híbrida: se embeddings estiverem disponíveis, re-ranqueia os candidatos
+        if self.dense_embeddings and np is not None:
+            try:
+                q_embs = gerar_embeddings([query], input_type="search_query")
+                if q_embs and len(q_embs) > 0:
+                    q_vec = np.array(q_embs[0], dtype=np.float32)
+                    q_norm = np.linalg.norm(q_vec)
+                    if q_norm > 0:
+                        q_vec /= q_norm
+                        rescored = []
+                        for sc, cov, s in scored:
+                            key = f"{s.codigo}@{s.versao}#{s.secao_id}"
+                            vec = self.dense_embeddings.get(key)
+                            sim = 0.0
+                            if vec is not None:
+                                d_arr = np.array(vec, dtype=np.float32)
+                                d_norm = np.linalg.norm(d_arr)
+                                if d_norm > 0:
+                                    sim = float(np.dot(q_vec, d_arr / d_norm))
+                            sim_bonus = max(0.0, sim)
+                            h_score = sc * (0.25 + cov) * (1.0 + 0.25 * sim_bonus)
+                            rescored.append((sc, cov, s, h_score))
+
+                        rescored.sort(key=lambda x: x[3], reverse=True)
+                        scored = [(x[0], x[1], x[2]) for x in rescored]
+            except Exception as e:
+                logger.warning(f"Embeddings falharam na consulta ({type(e).__name__}); segue só BM25.")
+
+        top_score, top_cov, _ = scored[0]
         chave_top = top_score * (0.25 + top_cov)
 
         # Seleciona top_k seções vigentes (no máximo MAX_POR_DOCUMENTO por documento).

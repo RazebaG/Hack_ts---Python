@@ -71,9 +71,16 @@ class DocumentoDetalhe(DocumentoResumo):
     secoes: List[Secao] = Field(default_factory=list, description="Lista de seções do documento")
 
 
+class IASaude(BaseModel):
+    provedor: str = Field(..., description="Provedor de IA configurado: bedrock ou nenhum")
+    modelo: Optional[str] = Field(None, description="Modelo principal configurado")
+    disponivel: bool = Field(..., description="True se a IA está disponível e operacional")
+
+
 class SaudeResponse(BaseModel):
     status: str = "ok"
     documentos: int
+    ia: Optional[IASaude] = None
 
 
 class PerguntaRequest(BaseModel):

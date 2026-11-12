@@ -38,6 +38,7 @@ from app.models import (
 )
 from app.acervo import AcervoRepository, get_acervo
 from app.taxonomia import derivar_camada, derivar_tema
+from app.bedrock import get_llm_provider, gerar_resposta_converse
 
 logger = logging.getLogger(__name__)
 
@@ -443,6 +444,53 @@ class InteligenciaService:
 
         return CompararResponse(codigo=codigo, de=de, para=para, mudancas=mudancas, resumo=resumo)
 
+    def _gerar_sintese_executiva_ia(self, p_detalhe: PerspectivaDetalhe) -> Optional[RelatorioSecao]:
+        """Gera síntese executiva por perspectiva via Bedrock, cada item ancorado em uma fonte válida."""
+        if get_llm_provider() != "bedrock":
+            return None
+
+        itens_base = []
+        for d in p_detalhe.destaques[:2]:
+            itens_base.append((f"{d.titulo}: {d.valor or ''}", d.fonte))
+        for r in p_detalhe.riscos[:2]:
+            itens_base.append((r.descricao, r.fonte))
+        for p in p_detalhe.prazos[:2]:
+            itens_base.append((f"Prazo [{p.data or p.marco}]: {p.evento}", p.fonte))
+
+        if not itens_base:
+            return None
+
+        fatos_texto = "\n".join(
+            f"[{i+1}] {t} (Fonte: {f.codigo} v{f.versao} §{f.secao})"
+            for i, (t, f) in enumerate(itens_base)
+        )
+        prompt_sistema = (
+            "Você é o Assistente do Arquivo Central de Normas da ACME. "
+            "Elabore uma síntese executiva concisa em 1 ou 2 pontos sobre os fatos apresentados. "
+            "Cada ponto deve começar com '[FATO-N]: ' onde N é o número do fato correspondente."
+        )
+        msg_usuario = f"Perspectiva: {p_detalhe.nome}\n\nFatos:\n{fatos_texto}"
+
+        texto_llm, _, erro = gerar_resposta_converse(prompt_sistema, msg_usuario, max_tokens=250)
+        if erro or not texto_llm:
+            return None
+
+        itens_rel = []
+        for linha in texto_llm.strip().split("\n"):
+            linha = linha.strip()
+            if not linha:
+                continue
+            match = re.search(r"\[FATO-(\d+)\]", linha)
+            if match:
+                idx = int(match.group(1)) - 1
+                if 0 <= idx < len(itens_base):
+                    texto_limpo = re.sub(r"^[•\-\*\s]*\[FATO-\d+\]:\s*", "", linha)
+                    itens_rel.append(RelatorioItem(texto=texto_limpo, fonte=itens_base[idx][1]))
+
+        if itens_rel:
+            return RelatorioSecao(titulo="Síntese Executiva Consolidada (IA)", itens=itens_rel)
+        return None
+
     def gerar_relatorio(
         self,
         perspectiva: Optional[str] = None,
@@ -468,6 +516,11 @@ class InteligenciaService:
 
             p_detalhe = self.obter_perspectiva(p_clean)
             secoes_rel: List[RelatorioSecao] = []
+
+            # Síntese Executiva Inteligente gerada com Amazon Bedrock quando ativo
+            sintese_ia = self._gerar_sintese_executiva_ia(p_detalhe)
+            if sintese_ia:
+                secoes_rel.append(sintese_ia)
 
             # Seção Destaques
             if p_detalhe.destaques:
