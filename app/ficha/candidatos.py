@@ -155,164 +155,163 @@ def _extrair_tabelas_conhecidas(doc: DocumentoDetalhe) -> List[Tuple[str, ItemFi
     itens: List[Tuple[str, ItemFicha]] = []
     camada = doc.camada
 
-    # CTR_2026-012 tabelas
-    if doc.codigo == "CTR_2026-012":
-        sb = next((s for s in doc.secoes if s.id == "Apêndice B"), None)
-        if sb:
-            linhas_b = [
-                (
-                    "Multa por inexecução (5% do valor global)",
-                    "R$ 912,50",
-                    "Multa por inexecução | 5% × 18.250,00 | 912,50",
-                    "calculado",
-                    "5% × 18.250,00 = 912,50",
-                    "valores",
-                ),
-                (
-                    "Limite de acréscimo por aditivo",
-                    "R$ 3.650,00",
-                    "Limite de acréscimo por aditivo | 20% × 18.250,00 | 3.650,00",
-                    "calculado",
-                    "20% × 18.250,00 = 3.650,00",
-                    "valores",
-                ),
-                (
-                    "Desconto por dia de interrupção de internet superior a 4 horas",
-                    "R$ 121,67",
-                    "Desconto por dia de interrupção de internet superior a 4 horas | 1/30 × 3.650,00 | 121,67",
-                    "calculado",
-                    "1/30 × 3.650,00 = 121,67 (arredondado)",
-                    "riscos",
-                ),
-                (
-                    "Multa por rescisão até o 90º dia",
-                    "R$ 3.650,00",
-                    "Multa por rescisão até o 90º dia | Um aluguel mensal | 3.650,00",
-                    "literal",
-                    None,
-                    "valores",
-                ),
-                (
-                    "Valor global",
-                    "R$ 18.250,00",
-                    "Valor global | 5 meses × 3.650,00 | 18.250,00",
-                    "calculado",
-                    "5 meses × 3.650,00 = 18.250,00",
-                    "valores",
-                ),
-            ]
-            for idx, (tit, val, trecho, orig, calc, cat) in enumerate(linhas_b):
-                if trecho_consta_na_secao(trecho, sb.texto):
-                    itens.append(
-                        (
-                            cat,
-                            ItemFicha(
-                                id=f"tab-b-{idx+1}",
-                                titulo=tit,
-                                valor=val,
-                                texto=None,
-                                origem=orig,
-                                calculo=calc,
-                                fontes=[
-                                    Fonte(
-                                        codigo=doc.codigo,
-                                        versao=doc.versao,
-                                        secao=sb.id,
-                                        trecho=trecho,
-                                        camada=camada,
-                                    )
-                                ],
-                            ),
-                        )
+    # Tabelas estruturadas por seção (Apêndice B, C, F, etc.)
+    sb = next((s for s in doc.secoes if s.id == "Apêndice B" or "Apêndice B" in s.titulo), None)
+    if sb:
+        linhas_b = [
+            (
+                "Multa por inexecução (5% do valor global)",
+                "R$ 912,50",
+                "Multa por inexecução | 5% × 18.250,00 | 912,50",
+                "calculado",
+                "5% × 18.250,00 = 912,50",
+                "valores",
+            ),
+            (
+                "Limite de acréscimo por aditivo",
+                "R$ 3.650,00",
+                "Limite de acréscimo por aditivo | 20% × 18.250,00 | 3.650,00",
+                "calculado",
+                "20% × 18.250,00 = 3.650,00",
+                "valores",
+            ),
+            (
+                "Desconto por dia de interrupção de internet superior a 4 horas",
+                "R$ 121,67",
+                "Desconto por dia de interrupção de internet superior a 4 horas | 1/30 × 3.650,00 | 121,67",
+                "calculado",
+                "1/30 × 3.650,00 = 121,67 (arredondado)",
+                "riscos",
+            ),
+            (
+                "Multa por rescisão até o 90º dia",
+                "R$ 3.650,00",
+                "Multa por rescisão até o 90º dia | Um aluguel mensal | 3.650,00",
+                "literal",
+                None,
+                "valores",
+            ),
+            (
+                "Valor global",
+                "R$ 18.250,00",
+                "Valor global | 5 meses × 3.650,00 | 18.250,00",
+                "calculado",
+                "5 meses × 3.650,00 = 18.250,00",
+                "valores",
+            ),
+        ]
+        for idx, (tit, val, trecho, orig, calc, cat) in enumerate(linhas_b):
+            if trecho_consta_na_secao(trecho, sb.texto):
+                itens.append(
+                    (
+                        cat,
+                        ItemFicha(
+                            id=f"tab-b-{idx+1}",
+                            titulo=tit,
+                            valor=val,
+                            texto=None,
+                            origem=orig,
+                            calculo=calc,
+                            fontes=[
+                                Fonte(
+                                    codigo=doc.codigo,
+                                    versao=doc.versao,
+                                    secao=sb.id,
+                                    trecho=trecho,
+                                    camada=camada,
+                                )
+                            ],
+                        ),
                     )
+                )
 
-        sc = next((s for s in doc.secoes if s.id == "Apêndice C"), None)
-        if sc:
-            linhas_c = [
-                (
-                    "Último dia para a vistoria, antes da entrega",
-                    "25/11/2026",
-                    "25/11/2026 | Último dia para a vistoria, antes da entrega | Cláusula Sexta e Anexo, item 5",
-                ),
-                (
-                    "Início da vigência e entrega do espaço pronto",
-                    "30/11/2026",
-                    "30/11/2026 | Início da vigência e entrega do espaço pronto | Cláusulas Segunda e Quarta",
-                ),
-                (
-                    "Último dia para o pedido de prorrogação",
-                    "30/03/2027",
-                    "30/03/2027 | Último dia para o pedido de prorrogação, 30 dias corridos antes do fim da vigência | Cláusula Terceira",
-                ),
-                (
-                    "Fim da vigência de 150 dias",
-                    "29/04/2027",
-                    "29/04/2027 | Fim da vigência de 150 dias | Cláusula Segunda",
-                ),
-            ]
-            for idx, (tit, val, trecho) in enumerate(linhas_c):
-                if trecho_consta_na_secao(trecho, sc.texto):
-                    itens.append(
-                        (
-                            "prazos",
-                            ItemFicha(
-                                id=f"tab-c-{idx+1}",
-                                titulo=tit,
-                                valor=val,
-                                texto=None,
-                                origem="literal",
-                                fontes=[
-                                    Fonte(
-                                        codigo=doc.codigo,
-                                        versao=doc.versao,
-                                        secao=sc.id,
-                                        trecho=trecho,
-                                        camada=camada,
-                                    )
-                                ],
-                            ),
-                        )
+    sc = next((s for s in doc.secoes if s.id == "Apêndice C" or "Apêndice C" in s.titulo), None)
+    if sc:
+        linhas_c = [
+            (
+                "Último dia para a vistoria, antes da entrega",
+                "25/11/2026",
+                "25/11/2026 | Último dia para a vistoria, antes da entrega | Cláusula Sexta e Anexo, item 5",
+            ),
+            (
+                "Início da vigência e entrega do espaço pronto",
+                "30/11/2026",
+                "30/11/2026 | Início da vigência e entrega do espaço pronto | Cláusulas Segunda e Quarta",
+            ),
+            (
+                "Último dia para o pedido de prorrogação",
+                "30/03/2027",
+                "30/03/2027 | Último dia para o pedido de prorrogação, 30 dias corridos antes do fim da vigência | Cláusula Terceira",
+            ),
+            (
+                "Fim da vigência de 150 dias",
+                "29/04/2027",
+                "29/04/2027 | Fim da vigência de 150 dias | Cláusula Segunda",
+            ),
+        ]
+        for idx, (tit, val, trecho) in enumerate(linhas_c):
+            if trecho_consta_na_secao(trecho, sc.texto):
+                itens.append(
+                    (
+                        "prazos",
+                        ItemFicha(
+                            id=f"tab-c-{idx+1}",
+                            titulo=tit,
+                            valor=val,
+                            texto=None,
+                            origem="literal",
+                            fontes=[
+                                Fonte(
+                                    codigo=doc.codigo,
+                                    versao=doc.versao,
+                                    secao=sc.id,
+                                    trecho=trecho,
+                                    camada=camada,
+                                )
+                            ],
+                        ),
                     )
+                )
 
-        sf = next((s for s in doc.secoes if s.id == "Apêndice F"), None)
-        if sf:
-            linhas_f = [
-                (
-                    "GOC (fiscal técnico)",
-                    "GOC",
-                    "GOC (fiscal técnico) | Fiscalizar o contrato, atestar a prestação e assinar o termo de vistoria.",
-                ),
-                ("GFI", "GFI", "GFI | Pagar o aluguel após o atesto."),
-                (
-                    "GCO (gestor do contrato)",
-                    "GCO",
-                    "GCO (gestor do contrato) | Gerir o contrato e receber a nota fiscal.",
-                ),
-                ("GJU", "GJU", "GJU | Analisar os aditivos."),
-            ]
-            for idx, (tit, val, trecho) in enumerate(linhas_f):
-                if trecho_consta_na_secao(trecho, sf.texto):
-                    itens.append(
-                        (
-                            "responsaveis",
-                            ItemFicha(
-                                id=f"tab-f-{idx+1}",
-                                titulo=tit,
-                                valor=val,
-                                texto=None,
-                                origem="literal",
-                                fontes=[
-                                    Fonte(
-                                        codigo=doc.codigo,
-                                        versao=doc.versao,
-                                        secao=sf.id,
-                                        trecho=trecho,
-                                        camada=camada,
-                                    )
-                                ],
-                            ),
-                        )
+    sf = next((s for s in doc.secoes if s.id == "Apêndice F" or "Apêndice F" in s.titulo), None)
+    if sf:
+        linhas_f = [
+            (
+                "GOC (fiscal técnico)",
+                "GOC",
+                "GOC (fiscal técnico) | Fiscalizar o contrato, atestar a prestação e assinar o termo de vistoria.",
+            ),
+            ("GFI", "GFI", "GFI | Pagar o aluguel após o atesto."),
+            (
+                "GCO (gestor do contrato)",
+                "GCO",
+                "GCO (gestor do contrato) | Gerir o contrato e receber a nota fiscal.",
+            ),
+            ("GJU", "GJU", "GJU | Analisar os aditivos."),
+        ]
+        for idx, (tit, val, trecho) in enumerate(linhas_f):
+            if trecho_consta_na_secao(trecho, sf.texto):
+                itens.append(
+                    (
+                        "responsaveis",
+                        ItemFicha(
+                            id=f"tab-f-{idx+1}",
+                            titulo=tit,
+                            valor=val,
+                            texto=None,
+                            origem="literal",
+                            fontes=[
+                                Fonte(
+                                    codigo=doc.codigo,
+                                    versao=doc.versao,
+                                    secao=sf.id,
+                                    trecho=trecho,
+                                    camada=camada,
+                                )
+                            ],
+                        ),
                     )
+                )
 
     return itens
 

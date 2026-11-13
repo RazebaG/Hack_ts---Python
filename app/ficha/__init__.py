@@ -11,10 +11,12 @@ from app.ficha.modelos import (
     ItemFicha,
     Acao,
     Bloco,
+    RelevanciaBloco,
     CelulaMapa,
     Alerta,
     Cobertura,
     PontosFicha,
+    FamiliaDocumento,
 )
 from app.ficha.metadados import (
     extrair_metadados_documento,
@@ -22,7 +24,6 @@ from app.ficha.metadados import (
     extrair_identidade,
     extrair_metricas,
     extrair_vigencia,
-    derivar_familia,
     gerar_semaforo_base,
 )
 from app.ficha.candidatos import (
@@ -36,6 +37,18 @@ from app.ficha.verificador import (
     verificar_pontos,
     extrair_e_verificar,
 )
+from app.ficha.familias import (
+    FAMILIA_BLOCOS,
+    BlocoTemplate,
+    derivar_familia,
+)
+from app.ficha.relevancia import (
+    PesosRelevancia,
+    calcular_relevancia_bloco,
+)
+from app.ficha.montagem import (
+    montar_ficha,
+)
 
 __all__ = [
     "FichaDocumento",
@@ -45,16 +58,17 @@ __all__ = [
     "ItemFicha",
     "Acao",
     "Bloco",
+    "RelevanciaBloco",
     "CelulaMapa",
     "Alerta",
     "Cobertura",
     "PontosFicha",
+    "FamiliaDocumento",
     "extrair_metadados_documento",
     "extrair_governanca",
     "extrair_identidade",
     "extrair_metricas",
     "extrair_vigencia",
-    "derivar_familia",
     "gerar_semaforo_base",
     "extrair_candidatos",
     "extrair_pontos_candidatos",
@@ -63,4 +77,10 @@ __all__ = [
     "verificar_candidatos",
     "verificar_pontos",
     "extrair_e_verificar",
+    "FAMILIA_BLOCOS",
+    "BlocoTemplate",
+    "derivar_familia",
+    "PesosRelevancia",
+    "calcular_relevancia_bloco",
+    "montar_ficha",
 ]
