@@ -1,0 +1,50 @@
+# Git
+.git
+.gitignore
+.github
+
+# Python caches e ambientes virtuais
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Testes e cobertura
+.pytest_cache/
+.coverage
+htmlcov/
+tests/
+eval/
+
+# Arquivos de ambiente e segredos locais (nunca incluir em imagem de container)
+.env
+.env.*
+!.env.example
+
+# IDEs e editores
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Documentação pesada não necessária em runtime
+docs/
