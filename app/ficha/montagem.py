@@ -439,14 +439,14 @@ def _montar_blocos_por_familia(
                 b_secoes = list(dict.fromkeys(f.secao for f in top_r.fontes))
                 b_itens = [top_r.id]
             elif tmpl.id == "b-penalidades":
-                excecoes = [
-                    p for p in pontos.prazos + pontos.condicoes
-                    if "menos de 45" in (p.texto or "").lower() or "diretor" in (p.texto or "").lower() or "exce" in (p.titulo or "").lower()
+                cands_penal = [
+                    p for p in pontos.riscos + pontos.condicoes + pontos.prazos
+                    if any(w in (p.texto or "").lower() or w in p.titulo.lower() for w in ("penalid", "exce", "ressalv", "só é aceit", "so e aceit", "vedado", "proibido", "multa"))
                 ]
-                if excecoes:
-                    top_r = excecoes[0]
-                    b_destaque = "Exceção: Diretor" if "diretor" in (top_r.texto or "").lower() else top_r.titulo
-                    b_apoio = top_r.texto or f"Exceção regulamentar: {top_r.titulo}."
+                if cands_penal:
+                    top_r = cands_penal[0]
+                    b_destaque = top_r.valor or top_r.titulo
+                    b_apoio = top_r.texto or f"Condições e penalidades: {top_r.titulo}."
                     b_secoes = list(dict.fromkeys(f.secao for f in top_r.fontes))
                     b_itens = [top_r.id]
                 elif itens_risco:
@@ -465,25 +465,32 @@ def _montar_blocos_por_familia(
         elif tmpl.sinal == "regra":
             if tmpl.id == "b-muda":
                 alerta_v2 = next((a for a in alertas if a.tipo == "versao_substituida"), None)
-                item_mudanca = next((p for p in pontos.prazos if "45" in (p.valor or "") or "45" in p.titulo), None)
+                item_mudanca = None
+                if alerta_v2 and alerta_v2.fontes:
+                    secoes_alerta = {f.secao for f in alerta_v2.fontes}
+                    cands = [p for p in pontos.prazos + pontos.obrigacoes + pontos.condicoes if any(f.secao in secoes_alerta for f in p.fontes)]
+                    if cands:
+                        item_mudanca = cands[0]
                 if not item_mudanca and pontos.obrigacoes:
                     item_mudanca = pontos.obrigacoes[0]
+                elif not item_mudanca and pontos.prazos:
+                    item_mudanca = pontos.prazos[0]
 
-                if alerta_v2 or item_mudanca:
-                    if item_mudanca:
-                        b_destaque = "45 dias" if "45" in (item_mudanca.valor or "") or "45" in item_mudanca.titulo else (item_mudanca.valor or item_mudanca.titulo)
-                        b_apoio = (
-                            f"A solicitação passa a exigir {b_destaque} de antecedência mínima no Portal Raiz "
-                            f"(a versão anterior v2 foi substituída)."
-                        )
-                        b_secoes = list(dict.fromkeys(f.secao for f in item_mudanca.fontes))
-                        b_itens = [item_mudanca.id]
-                    elif alerta_v2:
-                        b_destaque = alerta_v2.titulo.split(":")[0]
-                        b_apoio = alerta_v2.explicacao
-                        b_secoes = list(dict.fromkeys(f.secao for f in alerta_v2.fontes))
-                        b_itens = []
+                if item_mudanca:
+                    b_destaque = item_mudanca.valor or item_mudanca.titulo
+                    if alerta_v2:
+                        b_apoio = f"{item_mudanca.texto or item_mudanca.titulo} ({alerta_v2.explicacao})"
                         b_alerta_idx = alertas.index(alerta_v2)
+                    else:
+                        b_apoio = item_mudanca.texto or f"Regra e diretriz aplicável: {item_mudanca.titulo}."
+                    b_secoes = list(dict.fromkeys(f.secao for f in item_mudanca.fontes))
+                    b_itens = [item_mudanca.id]
+                elif alerta_v2:
+                    b_destaque = alerta_v2.titulo.split(":")[0]
+                    b_apoio = alerta_v2.explicacao
+                    b_secoes = list(dict.fromkeys(f.secao for f in alerta_v2.fontes))
+                    b_itens = []
+                    b_alerta_idx = alertas.index(alerta_v2)
 
             elif tmpl.id == "b-ligados":
                 refs = governanca.referencias
@@ -499,7 +506,7 @@ def _montar_blocos_por_familia(
                     None,
                 )
                 if vedacao:
-                    b_destaque = "Sem sublocar" if "sublocar" in (vedacao.texto or vedacao.titulo).lower() else vedacao.titulo
+                    b_destaque = vedacao.valor or vedacao.titulo
                     b_apoio = vedacao.texto or f"Regra e vedação expressa: {vedacao.titulo}."
                     b_secoes = list(dict.fromkeys(f.secao for f in vedacao.fontes))
                     b_itens = [vedacao.id]

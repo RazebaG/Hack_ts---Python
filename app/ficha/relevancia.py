@@ -13,22 +13,25 @@ Fórmula de Pontuação:
 
 Regras dos componentes:
 1. urgencia_prazo (peso 0.35):
-   - Prazo <= 7 dias: 1.0 (motivo: 'vence em N dias' ou 'prazo crítico')
+   - Prazo <= 7 dias (ou vencido): 1.0 (motivo: 'vence em N dias' ou 'vencido há N dias')
    - Prazo <= 30 dias: 0.6 (motivo: 'vence em N dias')
    - Prazo <= 90 dias: 0.2 (motivo: 'prazo em N dias')
-   - Prazo relativo/geral: 0.1 a 0.2
+   - Prazo > 90 dias ou geral: 0.05
 2. peso_valor (peso 0.25):
    - valor_do_bloco / maior_valor_do_documento (0.0 a 1.0)
    - ratio >= 0.95: 1.0 (motivo: 'maior valor do contrato' ou 'maior valor do documento')
-   - ratio < 0.95: proporcional (motivo: 'valor expressivo' ou valor monetário)
+   - ratio < 0.95: proporcional (motivo: 'valor expressivo' ou 'impacto financeiro')
 3. risco (peso 0.20):
-   - Multa pecuniária, rescisão ou inexecução: 1.0 (motivo: 'risco financeiro')
-   - Vedação expressa / penalidade: 0.8 (motivo: 'vedação expressa' ou 'penalidade')
+   - Multa, rescisão, inexecução ou desconto: 1.0 (motivo: 'risco financeiro')
+   - Vedação expressa / proibição: 0.8 (motivo: 'vedação expressa')
+   - Penalidade ou exceção: 0.8 (motivo: 'penalidade ou exceção')
+   - Risco geral: 0.5 (motivo: 'risco identificado')
 4. divergencia_substituicao (peso 0.15):
    - Referência ausente no acervo: 1.0 (motivo: 'referência ausente')
    - Versão anterior substituída: 1.0 (motivo: 'versão anterior substituída')
+   - Alerta geral de governança: 0.5 (motivo: 'alerta de governança')
 5. mudanca_recente (peso 0.05):
-   - Mudança de regra ou nova obrigação: 1.0 (motivo: 'mudança de regra em relação à v2' ou 'nova regra')
+   - Mudança recente de regra / nova regra: 1.0 (motivo: 'mudança recente de regra')
 
 Desempate:
     Em caso de empate na pontuação, prevalece a ordem padrão definida
@@ -103,14 +106,16 @@ def calcular_relevancia_bloco(
     pesos: Optional[PesosRelevancia] = None,
     familia: str = "contrato",
 ) -> Tuple[float, str]:
-    """Calcula determinística a pontuação e o motivo para um bloco.
+    """Calcula determinística a pontuação e o motivo para um bloco exclusivamente
+    a partir da fórmula do PRD (seção 3.5), sem constantes ajustadas ou literais de documentos.
 
     Retorna (pontuacao, motivo).
     """
     if pesos is None:
         pesos = PesosRelevancia()
 
-    texto_total = f"{destaque} {apoio or ''}".lower()
+    apoio_txt = apoio or ""
+    texto_total = f"{destaque} {apoio_txt}".lower()
     scores: Dict[str, float] = {
         "urgencia_prazo": 0.0,
         "peso_valor": 0.0,
@@ -120,7 +125,7 @@ def calcular_relevancia_bloco(
     }
     motivos: Dict[str, str] = {}
 
-    # 1. Urgência de prazo
+    # 1. Urgência de prazo (peso 0.35)
     dt = parse_data(destaque) or parse_data(apoio)
     if dt:
         dias = (dt - data_referencia).days
@@ -153,99 +158,68 @@ def calcular_relevancia_bloco(
                 scores["urgencia_prazo"] = 0.2
                 motivos["urgencia_prazo"] = f"prazo de {n_dias} dias"
             else:
-                scores["urgencia_prazo"] = 0.1
+                scores["urgencia_prazo"] = 0.05
                 motivos["urgencia_prazo"] = f"prazo de {n_dias} dias"
-        else:
-            scores["urgencia_prazo"] = 0.1
-            motivos["urgencia_prazo"] = "prazo estabelecido"
 
-    # 2. Peso do valor
+    # 2. Peso do valor (peso 0.25)
     val = parse_valor_moeda(destaque)
     if val == 0.0:
         val = parse_valor_moeda(apoio)
     if val > 0.0 and maior_valor_doc > 0.0:
-        ratio = val / maior_valor_doc
-        scores["peso_valor"] = min(1.0, ratio)
+        ratio = min(1.0, val / maior_valor_doc)
+        scores["peso_valor"] = ratio
         if ratio >= 0.95:
             motivos["peso_valor"] = "maior valor do contrato" if familia == "contrato" else "maior valor do documento"
         elif ratio >= 0.4:
-            motivos["peso_valor"] = f"valor expressivo ({destaque})"
+            motivos["peso_valor"] = "valor expressivo"
         else:
-            motivos["peso_valor"] = "valor relevante"
-    elif sinal == "valor":
-        scores["peso_valor"] = 0.2
-        motivos["peso_valor"] = "valores definidos"
+            motivos["peso_valor"] = "impacto financeiro"
 
-    # 3. Risco
-    if sinal == "risco" or any(t in texto_total for t in ("multa", "rescis", "inexecu", "penalid", "vedad", "desconto")):
-        if "multa" in texto_total or "rescis" in texto_total or "inexecu" in texto_total or "desconto" in texto_total:
-            scores["risco"] = 1.0
-            motivos["risco"] = "risco financeiro"
-        elif "vedad" in texto_total or "proibid" in texto_total:
-            scores["risco"] = 0.8
-            motivos["risco"] = "vedação expressa"
-        else:
-            scores["risco"] = 0.5
-            motivos["risco"] = "penalidade ou exceção"
+    # 3. Risco (peso 0.20)
+    if any(k in texto_total for k in ("multa", "rescis", "inexecu", "desconto")):
+        scores["risco"] = 1.0
+        motivos["risco"] = "risco financeiro"
+    elif any(k in texto_total for k in ("vedad", "proibid")):
+        scores["risco"] = 0.8
+        motivos["risco"] = "vedação expressa"
+    elif any(k in texto_total for k in ("penalid", "exce")):
+        scores["risco"] = 0.8
+        motivos["risco"] = "penalidade ou exceção"
+    elif sinal == "risco":
+        scores["risco"] = 0.5
+        motivos["risco"] = "risco identificado"
 
-    # 4. Divergência ou Substituição / Referência Ausente
-    if sinal == "alerta" or any(t in texto_total for t in ("falta no acervo", "referência ausente", "substitu", "ausente")):
+    # 4. Divergência ou Substituição / Referência Ausente (peso 0.15)
+    if any(k in texto_total for k in ("falta no acervo", "não consta no acervo", "referência ausente", "ausente")):
         scores["divergencia_substituicao"] = 1.0
-        if "falta" in titulo.lower() or "ausente" in texto_total:
-            motivos["divergencia_substituicao"] = "referência ausente"
-        elif "substitu" in texto_total:
-            motivos["divergencia_substituicao"] = "versão anterior substituída"
-        else:
-            motivos["divergencia_substituicao"] = "ponto de atenção"
+        motivos["divergencia_substituicao"] = "referência ausente"
+    elif "substitu" in texto_total or "revogad" in texto_total:
+        scores["divergencia_substituicao"] = 1.0
+        motivos["divergencia_substituicao"] = "versão anterior substituída"
+    elif sinal == "alerta":
+        scores["divergencia_substituicao"] = 0.5
+        motivos["divergencia_substituicao"] = "alerta de governança"
 
-    # 5. Mudança recente / Nova regra
+    # 5. Mudança recente / Nova regra (peso 0.05)
     if "o que muda" in titulo.lower() or "o que mudou" in titulo.lower():
         scores["mudanca_recente"] = 1.0
-        if "substitu" in texto_total or "v2" in texto_total or "45 dias" in texto_total:
-            motivos["mudanca_recente"] = "mudança de regra em relação à v2"
-        else:
-            motivos["mudanca_recente"] = "nova regra em vigor"
+        motivos["mudanca_recente"] = "mudança recente de regra"
 
-    # Cálculo da pontuação ponderada com fatores base para garantir consistência
-    # com mock-ficha-CTR_2026-012.json (C22)
+    # Contribuições ponderadas estritamente pelos pesos da fórmula do PRD (seção 3.5)
     contrib_prazo = pesos.urgencia_prazo * scores["urgencia_prazo"]
     contrib_valor = pesos.peso_valor * scores["peso_valor"]
     contrib_risco = pesos.risco * scores["risco"]
     contrib_alerta = pesos.divergencia_substituicao * scores["divergencia_substituicao"]
     contrib_mudanca = pesos.mudanca_recente * scores["mudanca_recente"]
 
-    # Base calibration por tipo de sinal para blocos que não possuem valor numérico direto
-    base_signal = 0.0
-    if sinal == "responsavel":
-        base_signal = 0.35
-        if "pagamento" in texto_total or "atesto" in texto_total:
-            base_signal = 0.41
-            motivos["responsavel"] = "rotina mensal de pagamento"
-        else:
-            motivos["responsavel"] = "atribuição de responsabilidade"
-    elif sinal == "regra" and scores["mudanca_recente"] == 0.0:
-        base_signal = 0.22
-        motivos["regra"] = "consulta quando surgir dúvida"
-    elif sinal == "valor" and scores["peso_valor"] >= 0.95:
-        # Garante pontuação de destaque para o maior valor do contrato (ex: 0.78 no mock)
-        base_signal = 0.53
-    elif sinal == "prazo" and scores["urgencia_prazo"] >= 0.6:
-        # Garante pontuação de destaque para prazo próximo (ex: 0.74 no mock)
-        base_signal = 0.53
-    elif sinal == "risco":
-        base_signal = 0.18
-    elif sinal == "alerta":
-        base_signal = 0.05
-
     pontuacao_bruta = (
         contrib_prazo +
         contrib_valor +
         contrib_risco +
         contrib_alerta +
-        contrib_mudanca +
-        base_signal
+        contrib_mudanca
     )
-    pontuacao = round(min(1.0, max(0.1, pontuacao_bruta)), 2)
+    pontuacao = round(min(1.0, max(0.0, pontuacao_bruta)), 2)
 
     # Identifica o fato que mais pesou
     fatores = [
@@ -254,13 +228,26 @@ def calcular_relevancia_bloco(
         (contrib_risco, motivos.get("risco")),
         (contrib_alerta, motivos.get("divergencia_substituicao")),
         (contrib_mudanca, motivos.get("mudanca_recente")),
-        (base_signal, motivos.get(sinal)),
     ]
-    fatores_validos = [(score, mot) for score, mot in fatores if mot]
-    if fatores_validos:
-        fatores_validos.sort(key=lambda x: x[0], reverse=True)
-        motivo_final = fatores_validos[0][1]
+    fatores_positivos = [(score, mot) for score, mot in fatores if mot and score > 0.0]
+    if fatores_positivos:
+        fatores_positivos.sort(key=lambda x: x[0], reverse=True)
+        motivo_final = fatores_positivos[0][1]
     else:
-        motivo_final = "item relevante do documento"
+        # Quando nenhum componente pontuou (ex: "Quem faz o quê", bloco informativo)
+        if sinal == "responsavel":
+            motivo_final = "atribuição de responsabilidades"
+        elif sinal == "regra":
+            motivo_final = "regras e diretrizes aplicáveis"
+        elif sinal == "prazo":
+            motivo_final = "prazos estabelecidos"
+        elif sinal == "valor":
+            motivo_final = "valores definidos"
+        elif sinal == "risco":
+            motivo_final = "condições e riscos"
+        elif sinal == "alerta":
+            motivo_final = "alerta de governança"
+        else:
+            motivo_final = "item informativo do documento"
 
     return pontuacao, motivo_final  # type: ignore[return-value]

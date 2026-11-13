@@ -463,3 +463,101 @@ def test_terceiros_documentos_px_1111_001_e_nt_2026_018(acervo_repo):
                     secoes_id = [s for s in doc_nt.secoes if s.id == f.secao]
                     assert secoes_id, f"Seção {f.secao} não encontrada em NT"
                     assert any(trecho_consta_na_secao(f.trecho, s.texto) for s in secoes_id)
+
+
+# ==============================================================================
+# 9. Teste de propriedades da fórmula de relevância (PRD 3.5)
+# ==============================================================================
+
+def test_propriedades_relevancia_e_independencia_de_codigo(acervo_repo):
+    """Testa propriedades fundamentais da fórmula de relevância (PRD 3.5 e exigência do coordenador):
+    1. Propriedade: prazo em 13 dias pontua mais que prazo em 80 dias.
+    2. Propriedade: maior valor pontua mais que valor menor.
+    3. Propriedade: bloco sem nenhum componente obtém pontuação mínima (0.0).
+    4. Propriedade: ordem estável em execuções repetidas.
+    5. Propriedade: independência de código - um documento com o código e o título trocados
+       produz rigorosamente a mesma estrutura de blocos e pontuações.
+    """
+    data_ref = date(2026, 11, 12)
+
+    # 1. Prazo em 13 dias pontua mais que prazo em 80 dias
+    p_13d, _ = calcular_relevancia_bloco(
+        id_bloco="b-prazo",
+        titulo="Até quando",
+        sinal="prazo",
+        destaque="25/11/2026",  # 13 dias
+        apoio=None,
+        maior_valor_doc=0.0,
+        data_referencia=data_ref,
+    )
+    p_80d, _ = calcular_relevancia_bloco(
+        id_bloco="b-prazo",
+        titulo="Até quando",
+        sinal="prazo",
+        destaque="31/01/2027",  # 80 dias
+        apoio=None,
+        maior_valor_doc=0.0,
+        data_referencia=data_ref,
+    )
+    assert p_13d > p_80d, f"Prazo de 13 dias ({p_13d}) deve pontuar mais que prazo de 80 dias ({p_80d})"
+
+    # 2. Maior valor pontua mais que valor menor
+    p_val_alto, _ = calcular_relevancia_bloco(
+        id_bloco="b-custo",
+        titulo="Quanto custa",
+        sinal="valor",
+        destaque="R$ 18.250,00",
+        apoio=None,
+        maior_valor_doc=18250.0,
+        data_referencia=data_ref,
+    )
+    p_val_baixo, _ = calcular_relevancia_bloco(
+        id_bloco="b-custo",
+        titulo="Quanto custa",
+        sinal="valor",
+        destaque="R$ 1.000,00",
+        apoio=None,
+        maior_valor_doc=18250.0,
+        data_referencia=data_ref,
+    )
+    assert p_val_alto > p_val_baixo, f"Valor maior ({p_val_alto}) deve pontuar mais que valor menor ({p_val_baixo})"
+
+    # 3. Sem componentes, pontuação mínima (0.0)
+    p_sem_comp, motivo_sem_comp = calcular_relevancia_bloco(
+        id_bloco="b-quem",
+        titulo="Quem faz o quê",
+        sinal="responsavel",
+        destaque="Área Responsável",
+        apoio="Descrição genérica de competências.",
+        maior_valor_doc=18250.0,
+        data_referencia=data_ref,
+    )
+    assert p_sem_comp == 0.0, f"Bloco sem componentes deve pontuar 0.0, obteve {p_sem_comp}"
+    assert motivo_sem_comp != ""
+
+    # 4. Ordem estável
+    doc = acervo_repo.buscar("CTR_2026-012", "1.0.0")
+    assert doc is not None
+    ordens = []
+    for _ in range(5):
+        f = montar_ficha(doc, acervo=acervo_repo, data_referencia=data_ref)
+        ordens.append([(b.id, b.relevancia.posicao, b.relevancia.pontuacao) for b in f.blocos])
+    assert all(o == ordens[0] for o in ordens), "Ordem de blocos deve ser estritamente estável"
+
+    # 5. Documento com código e título trocados produz a mesma estrutura
+    doc_trocado = copy.deepcopy(doc)
+    doc_trocado.codigo = "CTR_PROVA_INDEPENDENCIA_999"
+    doc_trocado.titulo = "Título Modificado para Teste de Regras Genéricas"
+    f_orig = montar_ficha(doc, acervo=acervo_repo, data_referencia=data_ref)
+    f_troc = montar_ficha(doc_trocado, acervo=acervo_repo, data_referencia=data_ref)
+
+    assert f_troc.familia == f_orig.familia
+    assert len(f_troc.blocos) == len(f_orig.blocos)
+    for b_orig, b_troc in zip(f_orig.blocos, f_troc.blocos):
+        assert b_troc.id == b_orig.id
+        assert b_troc.titulo == b_orig.titulo
+        assert b_troc.destaque == b_orig.destaque
+        assert b_troc.relevancia.posicao == b_orig.relevancia.posicao
+        assert b_troc.relevancia.pontuacao == b_orig.relevancia.pontuacao
+        assert b_troc.relevancia.motivo == b_orig.relevancia.motivo
+
