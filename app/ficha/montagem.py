@@ -196,13 +196,34 @@ def _obter_alertas_documento(
 
     # 3. Alerta se o próprio documento for versão substituída
     if doc.substituido and not any(a.tipo == "versao_substituida" for a in alertas):
+        fonte_subst = None
+        if doc.secoes:
+            s_vig = next(
+                (
+                    s
+                    for s in doc.secoes
+                    if any(
+                        k in (s.titulo or "").lower()
+                        for k in ("vigência", "vigencia", "histórico", "historico", "disposições transitórias")
+                    )
+                ),
+                doc.secoes[0],
+            )
+            trecho = (s_vig.texto or "").splitlines()[0] if s_vig.texto else doc.titulo
+            fonte_subst = Fonte(
+                codigo=doc.codigo,
+                versao=doc.versao,
+                secao=s_vig.id,
+                trecho=trecho,
+                camada=doc.camada,
+            )
         alertas.append(
             Alerta(
                 tipo="versao_substituida",
                 titulo=f"Documento em versão anterior substituída ({doc.versao})",
                 explicacao="Este documento foi revogado/substituído por versão mais recente em vigor.",
                 radar_id=None,
-                fontes=[],
+                fontes=[fonte_subst] if fonte_subst else [],
             )
         )
 
@@ -493,12 +514,8 @@ def _montar_blocos_por_familia(
                     b_alerta_idx = alertas.index(alerta_v2)
 
             elif tmpl.id == "b-ligados":
-                refs = governanca.referencias
-                if refs:
-                    b_destaque = " · ".join(refs[:3])
-                    b_apoio = f"Documentos normativos vinculados e citados: {b_destaque}."
-                    b_secoes = [doc.secoes[0].id] if doc.secoes else []
-                    b_itens = []
+                # Bloco sem item verificado na seção é omitido conforme regra geral (PRD 3.5)
+                continue
 
             elif tmpl.id == "b-regras":
                 vedacao = next(
@@ -553,8 +570,8 @@ def _montar_blocos_por_familia(
                 b_itens = []
                 b_alerta_idx = 0
 
-        # Omissão de bloco vazio (sem item verificado e sem alerta comprovado)
-        if not b_destaque or (not b_itens and b_alerta_idx is None and not b_secoes):
+        # Omissão de bloco sem fonte (sem item verificado e sem alerta comprovado, PRD 3.5)
+        if not b_destaque or (not b_itens and b_alerta_idx is None):
             continue
 
         pontuacao, motivo = calcular_relevancia_bloco(
@@ -647,6 +664,13 @@ def montar_ficha(
     linguagem: str = "original",
 ) -> FichaDocumento:
     """Função principal que orquestra a montagem completa da Ficha do Documento por Regra (C22)."""
+    if acervo is None:
+        try:
+            from app.acervo import get_acervo
+            acervo = get_acervo()
+        except Exception:
+            pass
+
     data_ref = obter_data_referencia(data_referencia)
 
     # 1. Metadados determinísticos
@@ -733,10 +757,7 @@ def montar_ficha(
             elif 0 <= dias <= 7:
                 prazos_urgentes.append((dias, f"Prazo crítico: {p.titulo} em {dias} dias"))
             elif 7 < dias <= 30:
-                if "vistoria" in p.titulo.lower():
-                    m_prz = f"Vistoria até {dt.strftime('%d/%m/%Y')} ({dias} dias)"
-                else:
-                    m_prz = f"{p.titulo} até {dt.strftime('%d/%m/%Y')} ({dias} dias)"
+                m_prz = f"{p.titulo} até {dt.strftime('%d/%m/%Y')} ({dias} dias)"
                 prazos_atencao.append((dias, m_prz))
 
     if prazos_urgentes:

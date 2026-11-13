@@ -21,7 +21,11 @@ from app.routers.inteligencia import router as inteligencia_router
 from app.routers.radar import router as radar_router
 from app.routers.simulador import router as simulador_router
 from app.routers.lotes import router as lotes_router, servico as lotes_servico
-from app.routers.ficha import router as ficha_router, obter_total_fichas_prontas
+from app.routers.ficha import (
+    router as ficha_router,
+    obter_total_fichas_prontas,
+    aquecer_cache_fichas,
+)
 from app.codigo import decodificar_codigo
 from app.bedrock import get_ia_status
 from app.seguranca import (
@@ -77,9 +81,13 @@ acervo = get_acervo()
 perguntar_service = PerguntarService(acervo)
 avaliacoes_repo = AvaliacoesRepository()
 
+# Pré-cálculo determinístico das fichas do acervo (Issue #56)
+aquecer_cache_fichas(acervo)
+
 # Documento publicado por lote entra no índice híbrido de /api/perguntar
-# (BM25 + embeddings das seções novas). O radar lê o acervo a cada consulta.
+# (BM25 + embeddings das seções novas) e aquece a ficha correspondente. O radar lê o acervo a cada consulta.
 lotes_servico.registrar_ao_publicar(perguntar_service.buscador.reindexar)
+lotes_servico.registrar_ao_publicar(lambda: aquecer_cache_fichas(acervo))
 
 
 @app.get("/api/saude", response_model=SaudeResponse)

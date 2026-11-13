@@ -22,15 +22,15 @@ from fastapi.testclient import TestClient
 from app.main import app
 from app.acervo import get_acervo
 from app.ficha.modelos import FichaDocumento
-from app.routers.ficha import limpar_cache_fichas
+from app.routers.ficha import limpar_cache_fichas, aquecer_cache_fichas
 
 client = TestClient(app)
 
 
 @pytest.fixture(autouse=True)
 def resetar_cache():
-    """Garante isolamento do cache em memória antes de cada teste."""
-    limpar_cache_fichas()
+    """Garante isolamento do cache em memória com pré-aquecimento das fichas."""
+    aquecer_cache_fichas()
     yield
     limpar_cache_fichas()
 
@@ -52,9 +52,9 @@ def test_ficha_ctr_2026_012_estrutura_mock_e_modelo():
 
     # Semáforo determinístico
     assert ficha.semaforo.nivel == "atencao"
-    motivos_str = " ".join(ficha.semaforo.motivos)
-    assert "Vistoria" in motivos_str
-    assert "NG_012" in motivos_str
+    motivos_str = " ".join(ficha.semaforo.motivos).lower()
+    assert "vistoria" in motivos_str
+    assert "ng_012" in motivos_str
 
     # Blocos da Mesa de Decisão (mínimo 4)
     assert len(ficha.blocos) >= 4
@@ -162,14 +162,19 @@ def test_ficha_cache_em_memoria_e_etag():
 
 def test_saude_contadores_fichas_e_autenticacao(monkeypatch):
     """Valida se /api/saude retorna fichas: {prontas, total} e status de autenticacao."""
-    # Estado inicial: cache limpo -> 0 prontas
+    # Estado inicial: fichas pré-calculadas no startup -> prontas == total == 13
     r_init = client.get("/api/saude")
     assert r_init.status_code == 200
     d_init = r_init.json()
     assert d_init["documentos"] == 13
-    assert d_init["fichas"]["prontas"] == 0
+    assert d_init["fichas"]["prontas"] == 13
     assert d_init["fichas"]["total"] == 13
     assert d_init["autenticacao"] == "desligada"
+
+    # Se o cache for limpo, passa a 0
+    limpar_cache_fichas()
+    r_limpo = client.get("/api/saude")
+    assert r_limpo.json()["fichas"]["prontas"] == 0
 
     # Gera ficha para CTR_2026-012
     client.get("/api/documentos/CTR_2026-012/ficha")
@@ -179,6 +184,11 @@ def test_saude_contadores_fichas_e_autenticacao(monkeypatch):
     d_after = r_after.json()
     assert d_after["fichas"]["prontas"] == 1
     assert d_after["fichas"]["total"] == 13
+
+    # Reaquecimento do acervo restaura as 13 fichas prontas
+    aquecer_cache_fichas()
+    r_re = client.get("/api/saude")
+    assert r_re.json()["fichas"]["prontas"] == 13
 
     # Com API_KEY configurada, indica autenticacao ligada
     monkeypatch.setenv("API_KEY", "minha-chave-teste")
