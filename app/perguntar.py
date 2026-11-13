@@ -1,7 +1,7 @@
 import logging
 import re
 import uuid
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from app.acervo import AcervoRepository
 from app.models import Citacao, PerguntaRequest, PerguntaResponse
