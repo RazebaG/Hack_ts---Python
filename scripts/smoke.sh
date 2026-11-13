@@ -69,10 +69,12 @@ fail() {
 echo "[0/9] Verificando /api/saude e cabeçalhos CORS..."
 SAUDE_RES=$(curl -s "${BASE_URL}/api/saude")
 DOC_COUNT=$(echo "${SAUDE_RES}" | jq -r '.documentos // empty')
-if [ "${DOC_COUNT}" = "13" ]; then
-    pass "/api/saude retornou status ok com 13 documentos"
+FICHAS_PRONTAS=$(echo "${SAUDE_RES}" | jq -r '.fichas.prontas // empty')
+FICHAS_TOTAL=$(echo "${SAUDE_RES}" | jq -r '.fichas.total // empty')
+if [ "${DOC_COUNT}" = "13" ] && [ "${FICHAS_PRONTAS}" = "13" ] && [ "${FICHAS_TOTAL}" = "13" ]; then
+    pass "/api/saude retornou status ok com 13 documentos e fichas prontas (${FICHAS_PRONTAS}/${FICHAS_TOTAL})"
 else
-    fail "/api/saude documentos inválidos" "${SAUDE_RES}"
+    fail "/api/saude documentos ou contadores de fichas inválidos" "${SAUDE_RES}"
 fi
 
 CORS_ORIGIN=$(curl -s -I -X OPTIONS "${BASE_URL}/api/perguntar" \

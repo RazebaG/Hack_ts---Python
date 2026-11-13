@@ -20,7 +20,7 @@
     "classificacao": "interna",
     "metricas": { "secoes": 43, "palavras": 3900, "paginas_estimadas": 10, "leitura_integral_min": 12, "leitura_ficha_min": 3 }
   },
-  "semaforo": { "nivel": "atencao", "motivos": ["Vistoria até 25/11/2026 (13 dias)", "NG_012 citada e ausente do acervo"] },
+  "semaforo": { "nivel": "atencao", "motivos": ["Último dia para a vistoria, antes da entrega até 25/11/2026 (13 dias)", "NG_012 citada e ausente do acervo"] },
   "governanca": {
     "elaborado_por": { "valor": "Gerência de Compras e Contratos (GCO)", "fonte": { "campo": "Elaborado por", "trecho": "Elaborado por: Gerência de Compras e Contratos (GCO)" } },
     "aprovado_por": { "valor": "Diretoria Administrativa e Financeira (DIRAF)", "fonte": { "campo": "Aprovado por", "trecho": "Aprovado por: Diretoria Administrativa e Financeira (DIRAF)" } },

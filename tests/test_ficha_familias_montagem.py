@@ -322,7 +322,11 @@ def test_varredura_acervo_sem_bloco_sem_fonte(acervo_repo):
             assert b.relevancia.posicao >= 1
             assert b.relevancia.motivo != ""
 
-            # O bloco precisa ter ou itens verificados ou um alerta verificado
+            # Issue #56: Todo bloco devolvido tem ao menos um item com fonte ou um alerta com fonte
+            assert b.itens or b.alerta is not None, (
+                f"Bloco {b.id} ({b.titulo}) em {doc.codigo} v{doc.versao} devolvido sem fonte (itens vazios e sem alerta)"
+            )
+
             if b.itens:
                 for it_id in b.itens:
                     item_obj = next(
@@ -347,11 +351,11 @@ def test_varredura_acervo_sem_bloco_sem_fonte(acervo_repo):
                     for f in item_obj.fontes:
                         sec = next((s for s in doc.secoes if s.id == f.secao), None)
                         assert sec is not None, f"Seção {f.secao} não encontrada em {doc.codigo}"
-            elif b.alerta is not None:
+            else:
+                assert b.alerta is not None
                 assert b.alerta < len(ficha.alertas)
                 alerta_obj = ficha.alertas[b.alerta]
-                if alerta_obj.tipo != "versao_substituida" or alerta_obj.fontes:
-                    assert len(alerta_obj.fontes) >= 1, f"Alerta sem fontes em {doc.codigo}"
+                assert len(alerta_obj.fontes) >= 1, f"Alerta sem fontes no bloco {b.id} em {doc.codigo}"
 
 
 # ==============================================================================

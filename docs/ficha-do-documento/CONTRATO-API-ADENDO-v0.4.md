@@ -134,7 +134,7 @@ Autenticação: respeita `API_KEY` e cabeçalho `X-API-Key` (401 se ausente/inv�
       "titulo": "Contrato de Locação de Espaço para Coworking",
       "tipo": "CTR",
       "tema": "locacao",
-      "semaforo": { "nivel": "atencao", "motivos": ["Vistoria até 25/11/2026 (13 dias)", "NG_012 citada e ausente do acervo"] },
+      "semaforo": { "nivel": "atencao", "motivos": ["Último dia para a vistoria, antes da entrega até 25/11/2026 (13 dias)", "NG_012 citada e ausente do acervo"] },
       "bluf_curto": "Locação de 8 estações de trabalho e de uma sala de; vigência de 30/11/2026 a 29/04/2027; valor de R$ 18.250,00.",
       "proximo_prazo": {
         "data": "2026-11-25",

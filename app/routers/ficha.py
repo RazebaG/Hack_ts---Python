@@ -58,6 +58,25 @@ def limpar_cache_fichas() -> None:
         _cache_fichas.clear()
 
 
+def aquecer_cache_fichas(acervo: Optional[AcervoRepository] = None) -> int:
+    """Pré-calcula e armazena em cache as fichas de todos os documentos do acervo (Issue #56)."""
+    if acervo is None:
+        acervo = get_acervo()
+    count = 0
+    for doc in acervo.documentos:
+        conteudo_hash = calcular_hash_conteudo(doc)
+        cache_key = (doc.codigo, doc.versao, conteudo_hash, None, "original")
+        with _lock_cache:
+            if cache_key in _cache_fichas:
+                count += 1
+                continue
+        ficha = montar_ficha(doc=doc, acervo=acervo, perfil=None, linguagem="original")
+        with _lock_cache:
+            _cache_fichas[cache_key] = ficha
+        count += 1
+    return count
+
+
 def obter_ficha_cache_ou_montar(
     doc: DocumentoDetalhe,
     acervo: AcervoRepository,
