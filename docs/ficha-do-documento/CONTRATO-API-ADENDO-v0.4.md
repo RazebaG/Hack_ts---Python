@@ -1,8 +1,8 @@
 # Adendo v0.4 ao CONTRATO-API.md · Ficha do Documento e Fontes em evidência (PROPOSTO · 12/11/2026)
 
-> **Status:** proposto; vale como contrato só depois que o Lead aprovar (como foi o v0.3). Soma-se a C1–C21 (v0.1 a v0.3).
+> **Status:** C22 entregue no backend em modo extrativo determinístico (F-07, Issue #48). Soma-se a C1–C21 (v0.1 a v0.3).
 > **Prefixo:** `/api`. **Erros:** mesmo formato do contrato base. **Autenticação:** quando `API_KEY` estiver ligada, cabeçalho `X-API-Key` (exceto `/api/saude`).
-> **Exemplo completo:** `mock-ficha-CTR_2026-012.json` (usar no frontend até o backend entregar).
+> **Exemplo completo:** `mock-ficha-CTR_2026-012.json` (validado contra resposta do backend).
 
 ---
 
@@ -74,8 +74,9 @@ Fonte = { codigo, versao, secao, trecho, camada }                // igual a C15
 2. `governanca`, `identidade.metricas`, `mapa_calor`, `numeros` de valor e prazo vêm de **extração por regra** (sem IA) e estão presentes em qualquer `modo`.
 3. `estado = "gerando"`: devolve `identidade`, `governanca` e `mapa_calor` (relance extrativo) com `bluf: null`; o cliente repete a chamada a cada 3 s.
 4. `estado = "parcial"`: extrativo pronto, IA pendente. `estado = "erro"`: relance extrativo + `modo.ia = "extrativo"`.
-5. Resposta vem do cache; `ETag` = hash do conteúdo + modelo + versão do prompt.
-6. `404` se o documento não existe; `422` para `perfil` inválido.
+5. Resposta vem do cache em memória por hash do conteúdo; `ETag` = hash do conteúdo; requisições com `If-None-Match` correspondente recebem `304 Not Modified`.
+6. `404` se o documento não existe (ou versão inexistente); `422` para `perfil` ou `linguagem` inválidos.
+7. Em modo extrativo determinístico (F-07), devolve `estado = "pronta"` e `modo = { ia: "extrativo", modelo: null }`.
 
 ## C22b · `POST /api/documentos/{codigo}/ficha/regenerar`
 

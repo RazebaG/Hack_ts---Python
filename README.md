@@ -66,8 +66,8 @@ A documentação interativa da API estará disponível em: `http://localhost:800
 ### Passo 5: Executar Testes e Smoke Integrado
 ```bash
 # No diretório do Backend (Hack_ts---Python):
-make test    # Executa a suíte de testes com pytest (110 testes)
-make smoke   # Executa o smoke test ponta a ponta com acervo real e validação de CORS
+make test    # Executa a suíte de testes com pytest (330 testes)
+make smoke   # Executa o smoke test ponta a ponta com acervo real, 9 casos-chave (incluindo Ficha de CTR_2026-012 e NG_111) e CORS
 make eval    # Executa a avaliação de perguntas e respostas (/api/perguntar)
 python -m eval.sinais   # Sinais do mapa de posição (F-02, #42): % de seções marcadas e recall contra data/curadoria
                         # (--prototipo mostra as regras antigas, para comparar)
@@ -196,9 +196,10 @@ Todos os endpoints operam em JSON UTF-8 com suporte a CORS para `http://localhos
 
 | Método | Endpoint | Descrição | Consumido no Frontend | Status |
 |---|---|---|---|---|
-| `GET` | `/api/saude` | Status da API, total de documentos e status de IA | `fetchSaude()` | ✓ Conforme |
+| `GET` | `/api/saude` | Status da API, total de documentos, status de IA, contagem de fichas e autenticação | `fetchSaude()` | ✓ Conforme |
 | `GET` | `/api/documentos` | Catálogo completo (vigentes e substituídos), com filtro `?serie=` | `fetchDocumentos()` | ✓ Conforme |
 | `GET` | `/api/documentos/{codigo}` | Detalhes e seções estruturadas (suporta `?versao=`) | `fetchDocumentoDetalhe()` | ✓ Conforme |
+| `GET` | `/api/documentos/{codigo}/ficha` | Ficha estruturada por regra (C22, F-07): identidade, mesa, semáforo, BLUF, ações, mapa de calor e alertas | `fetchFicha()` | ✓ Conforme |
 | `POST` | `/api/perguntar` | Respostas ancoradas com perfil, citações, avisos e camada | `postPerguntar()` | ✓ Conforme |
 | `GET` | `/api/codigo/{codigo}` | Decodificador de código taxonômico conforme catálogo | `fetchCodigo()` | ✓ Conforme |
 | `GET` | `/api/perspectivas` | Lista das 4 perspectivas analíticas homologadas | `fetchPerspectivas()` | ✓ Conforme |

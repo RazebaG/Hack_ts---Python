@@ -66,7 +66,7 @@ fail() {
 # ------------------------------------------------------------------------------
 # Teste 0: Saúde e CORS para http://localhost:5173
 # ------------------------------------------------------------------------------
-echo "[0/7] Verificando /api/saude e cabeçalhos CORS..."
+echo "[0/9] Verificando /api/saude e cabeçalhos CORS..."
 SAUDE_RES=$(curl -s "${BASE_URL}/api/saude")
 DOC_COUNT=$(echo "${SAUDE_RES}" | jq -r '.documentos // empty')
 if [ "${DOC_COUNT}" = "13" ]; then
@@ -87,7 +87,7 @@ fi
 # ------------------------------------------------------------------------------
 # Caso 1: Férias a partir de 05/05/2027 -> 21/03/2027 citando PX_1111-001 v1.0.0 Anexo D
 # ------------------------------------------------------------------------------
-echo "[1/7] Caso 1: Férias a partir de 05/05/2027 (prazo D-45 e citação PX_1111-001)..."
+echo "[1/9] Caso 1: Férias a partir de 05/05/2027 (prazo D-45 e citação PX_1111-001)..."
 CASO1_PAYLOAD='{"pergunta": "Até quando peço férias que começam em 05/05/2027?", "perfil": "empregado"}'
 CASO1_RES=$(curl -s -X POST "${BASE_URL}/api/perguntar" -H "Content-Type: application/json" -d "${CASO1_PAYLOAD}")
 
@@ -103,7 +103,7 @@ fi
 # ------------------------------------------------------------------------------
 # Caso 2: NG_111 v3 (45 dias) com aviso de que a v2 (30 dias) foi substituída
 # ------------------------------------------------------------------------------
-echo "[2/7] Caso 2: NG_111 v3 (45 dias) com aviso de substituição da v2..."
+echo "[2/9] Caso 2: NG_111 v3 (45 dias) com aviso de substituição da v2..."
 CASO2_PAYLOAD='{"pergunta": "Qual a antecedência mínima para pedir férias?", "perfil": "rh"}'
 CASO2_RES=$(curl -s -X POST "${BASE_URL}/api/perguntar" -H "Content-Type: application/json" -d "${CASO2_PAYLOAD}")
 
@@ -120,7 +120,7 @@ fi
 # ------------------------------------------------------------------------------
 # Caso 3: Pergunta fora do acervo -> consta=false e citacoes=[]
 # ------------------------------------------------------------------------------
-echo "[3/7] Caso 3: Pergunta fora do acervo (abstenção com consta=false)..."
+echo "[3/9] Caso 3: Pergunta fora do acervo (abstenção com consta=false)..."
 CASO3_PAYLOAD='{"pergunta": "Uma mesma pessoa pode elaborar, revisar e aprovar?", "perfil": "gestor"}'
 CASO3_RES=$(curl -s -X POST "${BASE_URL}/api/perguntar" -H "Content-Type: application/json" -d "${CASO3_PAYLOAD}")
 
@@ -136,7 +136,7 @@ fi
 # ------------------------------------------------------------------------------
 # Caso 4: /api/perspectivas/financeiro com R$ 18.250,00 e R$ 912,50
 # ------------------------------------------------------------------------------
-echo "[4/7] Caso 4: Perspectiva Financeiro (R$ 18.250,00 global e R$ 912,50 multa)..."
+echo "[4/9] Caso 4: Perspectiva Financeiro (R$ 18.250,00 global e R$ 912,50 multa)..."
 CASO4_RES=$(curl -s "${BASE_URL}/api/perspectivas/financeiro")
 
 TEM_VALOR_GLOBAL=$(echo "${CASO4_RES}" | jq -r 'any(.destaques[]; .valor | contains("18.250"))')
@@ -151,7 +151,7 @@ fi
 # ------------------------------------------------------------------------------
 # Caso 5: /api/radar com os 3 casos conhecidos
 # ------------------------------------------------------------------------------
-echo "[5/7] Caso 5: Radar de contradições (2 divergentes, 1 atenção, 3 casos)..."
+echo "[5/9] Caso 5: Radar de contradições (2 divergentes, 1 atenção, 3 casos)..."
 CASO5_RES=$(curl -s "${BASE_URL}/api/radar")
 
 DIVERGENTE=$(echo "${CASO5_RES}" | jq -r '.resumo.divergente')
@@ -168,7 +168,7 @@ fi
 # ------------------------------------------------------------------------------
 # Caso 6: /api/simular 45 -> 30
 # ------------------------------------------------------------------------------
-echo "[6/7] Caso 6: Simulador 'E se?' (antecedência 45 -> 30)..."
+echo "[6/9] Caso 6: Simulador 'E se?' (antecedência 45 -> 30)..."
 CASO6_PAYLOAD='{"regra": "ferias_antecedencia_dias", "novo_valor": 30}'
 CASO6_RES=$(curl -s -X POST "${BASE_URL}/api/simular" -H "Content-Type: application/json" -d "${CASO6_PAYLOAD}")
 
@@ -186,7 +186,7 @@ fi
 # ------------------------------------------------------------------------------
 # Caso 7: /api/documentos com camada e tema
 # ------------------------------------------------------------------------------
-echo "[7/7] Caso 7: /api/documentos com camada e tema preenchidos..."
+echo "[7/9] Caso 7: /api/documentos com camada e tema preenchidos..."
 CASO7_RES=$(curl -s "${BASE_URL}/api/documentos")
 
 DOC_TOTAL=$(echo "${CASO7_RES}" | jq -r 'length')
@@ -199,9 +199,49 @@ else
     fail "Caso 7 divergente" "DOC_TOTAL=${DOC_TOTAL}, CAMADA=${TODOS_TEM_CAMADA}, TEMA=${TODOS_TEM_TEMA}"
 fi
 
+# ------------------------------------------------------------------------------
+# Caso 8: /api/documentos/CTR_2026-012/ficha (C22, F-07)
+# ------------------------------------------------------------------------------
+echo "[8/9] Caso 8: Ficha do CTR_2026-012 (estado pronta, modo extrativo, semáforo atenção)..."
+CASO8_RES=$(curl -s "${BASE_URL}/api/documentos/CTR_2026-012/ficha")
+
+C8_CODIGO=$(echo "${CASO8_RES}" | jq -r '.codigo // empty')
+C8_ESTADO=$(echo "${CASO8_RES}" | jq -r '.estado // empty')
+C8_MODO=$(echo "${CASO8_RES}" | jq -r '.modo.ia // empty')
+C8_FAMILIA=$(echo "${CASO8_RES}" | jq -r '.familia // empty')
+C8_BLOCOS=$(echo "${CASO8_RES}" | jq -r '.blocos | length')
+C8_SEMAFORO=$(echo "${CASO8_RES}" | jq -r '.semaforo.nivel // empty')
+C8_DESCARTADOS=$(echo "${CASO8_RES}" | jq -r '.cobertura.itens_descartados // -1')
+
+if [ "${C8_CODIGO}" = "CTR_2026-012" ] && [ "${C8_ESTADO}" = "pronta" ] && [ "${C8_MODO}" = "extrativo" ] && [ "${C8_FAMILIA}" = "contrato" ] && [ "${C8_BLOCOS}" -ge 4 ] && [ "${C8_SEMAFORO}" = "atencao" ] && [ "${C8_DESCARTADOS}" = "0" ]; then
+    pass "Caso 8: ficha do CTR_2026-012 validada (estado pronta, modo extrativo, semáforo atenção, ${C8_BLOCOS} blocos)"
+else
+    fail "Caso 8 divergente" "CODIGO=${C8_CODIGO}, ESTADO=${C8_ESTADO}, MODO=${C8_MODO}, BLOCOS=${C8_BLOCOS}, SEMAFORO=${C8_SEMAFORO}, DESCARTADOS=${C8_DESCARTADOS}"
+fi
+
+# ------------------------------------------------------------------------------
+# Caso 9: /api/documentos/NG_111/ficha (C22, F-07)
+# ------------------------------------------------------------------------------
+echo "[9/9] Caso 9: Ficha da NG_111 (estado pronta, modo extrativo, família norma, semáforo ok)..."
+CASO9_RES=$(curl -s "${BASE_URL}/api/documentos/NG_111/ficha")
+
+C9_CODIGO=$(echo "${CASO9_RES}" | jq -r '.codigo // empty')
+C9_ESTADO=$(echo "${CASO9_RES}" | jq -r '.estado // empty')
+C9_MODO=$(echo "${CASO9_RES}" | jq -r '.modo.ia // empty')
+C9_FAMILIA=$(echo "${CASO9_RES}" | jq -r '.familia // empty')
+C9_BLOCOS=$(echo "${CASO9_RES}" | jq -r '.blocos | length')
+C9_SEMAFORO=$(echo "${CASO9_RES}" | jq -r '.semaforo.nivel // empty')
+C9_DESCARTADOS=$(echo "${CASO9_RES}" | jq -r '.cobertura.itens_descartados // -1')
+
+if [ "${C9_CODIGO}" = "NG_111" ] && [ "${C9_ESTADO}" = "pronta" ] && [ "${C9_MODO}" = "extrativo" ] && [ "${C9_FAMILIA}" = "norma" ] && [ "${C9_BLOCOS}" -ge 4 ] && [ "${C9_SEMAFORO}" = "ok" ] && [ "${C9_DESCARTADOS}" = "0" ]; then
+    pass "Caso 9: ficha da NG_111 validada (estado pronta, modo extrativo, família norma, semáforo ok, ${C9_BLOCOS} blocos)"
+else
+    fail "Caso 9 divergente" "CODIGO=${C9_CODIGO}, ESTADO=${C9_ESTADO}, MODO=${C9_MODO}, BLOCOS=${C9_BLOCOS}, SEMAFORO=${C9_SEMAFORO}, DESCARTADOS=${C9_DESCARTADOS}"
+fi
+
 echo "================================================================================"
 if [ "${FALHAS}" -eq 0 ]; then
-    echo "VEREDITO DO SMOKE TEST: TODOS OS 7 CASOS-CHAVE E CONTRATO DE CORS APROVADOS!"
+    echo "VEREDITO DO SMOKE TEST: TODOS OS 9 CASOS-CHAVE E CONTRATO DE CORS APROVADOS!"
     echo "================================================================================"
     exit 0
 else

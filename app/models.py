@@ -82,10 +82,17 @@ class IASaude(BaseModel):
     disponivel: bool = Field(..., description="True se a IA está disponível e operacional")
 
 
+class FichasSaude(BaseModel):
+    prontas: int = Field(0, description="Total de fichas em cache / prontas")
+    total: int = Field(..., description="Total de documentos elegíveis a ficha")
+
+
 class SaudeResponse(BaseModel):
     status: str = "ok"
     documentos: int
     ia: Optional[IASaude] = None
+    fichas: Optional[FichasSaude] = None
+    autenticacao: Optional[str] = Field("desligada", description="Status da autenticação: ligada ou desligada")
 
 
 class PerguntaRequest(BaseModel):

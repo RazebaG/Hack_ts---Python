@@ -87,6 +87,11 @@ def verificar_api_key(request: Request) -> Optional[JSONResponse]:
     return None
 
 
+def obter_status_autenticacao() -> str:
+    """Retorna 'ligada' se API_KEY estiver configurada, senão 'desligada'."""
+    return "ligada" if bool(os.getenv("API_KEY", "").strip()) else "desligada"
+
+
 # ---------------------------------------------------------------------------
 # Rate Limiting (Janela deslizante de 60s)
 # ---------------------------------------------------------------------------
