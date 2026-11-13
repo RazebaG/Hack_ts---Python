@@ -233,24 +233,7 @@ def extrair_governanca(
     )
 
 
-def derivar_familia(doc: DocumentoDetalhe) -> FamiliaDocumento:
-    """Deriva a família do documento a partir de camada e tipo (Revisão 13/11).
-
-    - CTR -> contrato
-    - NG, RG -> norma
-    - PX, PP, GU, FM, TB, FL -> procedimento
-    - NT, CT, DV -> nota_tecnica
-    """
-    sigla = doc.camada.sigla if doc.camada else (doc.codigo.split("_")[0] if "_" in doc.codigo else "")
-    if sigla == "CTR":
-        return "contrato"
-    if sigla in ("NG", "RG"):
-        return "norma"
-    if sigla in ("PX", "PP", "GU", "FM", "TB", "FL"):
-        return "procedimento"
-    if sigla in ("NT", "CT", "DV"):
-        return "nota_tecnica"
-    return "norma"
+from app.ficha.familias import derivar_familia
 
 
 def gerar_semaforo_base(
