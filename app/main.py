@@ -20,6 +20,7 @@ from app.routers.inteligencia import router as inteligencia_router
 from app.routers.radar import router as radar_router
 from app.routers.simulador import router as simulador_router
 from app.routers.lotes import router as lotes_router, servico as lotes_servico
+from app.routers.ficha import router as ficha_router
 from app.codigo import decodificar_codigo
 from app.bedrock import get_ia_status
 
@@ -48,6 +49,7 @@ app.include_router(inteligencia_router)
 app.include_router(radar_router)
 app.include_router(simulador_router)
 app.include_router(lotes_router)
+app.include_router(ficha_router)
 
 # Inicialização dos repositórios e serviços em memória
 acervo = get_acervo()
