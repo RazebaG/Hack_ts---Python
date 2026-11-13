@@ -70,6 +70,10 @@ class DocumentoResumo(BaseModel):
 
 class DocumentoDetalhe(DocumentoResumo):
     secoes: List[Secao] = Field(default_factory=list, description="Lista de seções do documento")
+    aprovado_em: Optional[str] = Field(None, description="Data de aprovação constante no cabeçalho")
+    assinada_em: Optional[str] = Field(None, description="Data de assinatura constante no cabeçalho")
+    classificacao: Optional[str] = Field(None, description="Classificação de segurança lida do cabeçalho")
+    header_raw: Optional[str] = Field(None, description="Texto bruto do cabeçalho")
 
 
 class IASaude(BaseModel):

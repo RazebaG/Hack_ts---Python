@@ -31,7 +31,18 @@ SECTION_HEADING_RE = re.compile(
 
 
 def is_key_line(line: str) -> bool:
-    return any(line.startswith(k) for k in KNOWN_HEADER_KEYS)
+    return any(line.startswith(k) for k in KNOWN_HEADER_KEYS) or line.startswith("#")
+
+
+def _limpar_valor_campo(val: Optional[str]) -> Optional[str]:
+    if not val:
+        return None
+    # Converte slashes separadores de quebra de linha: "Compras e / Contratos" -> "Compras e Contratos"
+    v = re.sub(r"\s+/\s+", " ", val)
+    v = re.sub(r"\s*/\s*$", "", v)
+    v = re.sub(r"^\s*/\s*", "", v)
+    v = re.sub(r"\s+", " ", v).strip()
+    return v or None
 
 
 def _assunto_por_caminho(file_path: Optional[Path]) -> str:
@@ -67,12 +78,17 @@ def parse_header(header_text: str, file_path: Optional[Path] = None, assunto: Op
         "aprovado_por": None,
         "assunto": assunto,
         "substituido": False,
+        "classificacao": None,
     }
 
     i = 0
     while i < len(raw_lines):
         line = raw_lines[i]
-        if line.startswith("Documento:"):
+        if line.startswith("#"):
+            tag = line.lstrip("#").strip().lower()
+            if tag:
+                doc_data["classificacao"] = tag
+        elif line.startswith("Documento:"):
             doc_data["tipo_nome"] = line.split("Documento:", 1)[1].strip()
         elif line.startswith("Título:"):
             doc_data["titulo"] = line.split("Título:", 1)[1].strip()
@@ -106,26 +122,36 @@ def parse_header(header_text: str, file_path: Optional[Path] = None, assunto: Op
                 ):
                     el_cont = raw_lines[i + 2]
                     ap_cont = raw_lines[i + 3]
-                    doc_data["elaborado_por"] = f"{el_val} {el_cont}".strip()
-                    doc_data["aprovado_por"] = f"{ap_val} {ap_cont}".strip()
+                    doc_data["elaborado_por"] = _limpar_valor_campo(f"{el_val} {el_cont}")
+                    doc_data["aprovado_por"] = _limpar_valor_campo(f"{ap_val} {ap_cont}")
                     i += 3
                 else:
-                    doc_data["elaborado_por"] = el_val
-                    doc_data["aprovado_por"] = ap_val
+                    doc_data["elaborado_por"] = _limpar_valor_campo(el_val)
+                    doc_data["aprovado_por"] = _limpar_valor_campo(ap_val)
                     i += 1
             elif i + 1 < len(raw_lines) and raw_lines[i + 1].startswith("Referência:"):
                 doc_data["referencia"] = raw_lines[i + 1].split("Referência:", 1)[1].strip()
                 if i + 2 < len(raw_lines) and not is_key_line(raw_lines[i + 2]):
                     el_cont = raw_lines[i + 2]
-                    doc_data["elaborado_por"] = f"{el_val} {el_cont}".strip()
+                    doc_data["elaborado_por"] = _limpar_valor_campo(f"{el_val} {el_cont}")
                     i += 2
                 else:
-                    doc_data["elaborado_por"] = el_val
+                    doc_data["elaborado_por"] = _limpar_valor_campo(el_val)
                     i += 1
+            elif i + 1 < len(raw_lines) and not is_key_line(raw_lines[i + 1]):
+                el_cont = raw_lines[i + 1]
+                doc_data["elaborado_por"] = _limpar_valor_campo(f"{el_val} {el_cont}")
+                i += 1
             else:
-                doc_data["elaborado_por"] = el_val
+                doc_data["elaborado_por"] = _limpar_valor_campo(el_val)
         elif line.startswith("Aprovado por:"):
-            doc_data["aprovado_por"] = line.split("Aprovado por:", 1)[1].strip()
+            ap_val = line.split("Aprovado por:", 1)[1].strip()
+            if i + 1 < len(raw_lines) and not is_key_line(raw_lines[i + 1]):
+                ap_cont = raw_lines[i + 1]
+                doc_data["aprovado_por"] = _limpar_valor_campo(f"{ap_val} {ap_cont}")
+                i += 1
+            else:
+                doc_data["aprovado_por"] = _limpar_valor_campo(ap_val)
         i += 1
 
     # Derivar tipo a partir da sigla no código
@@ -284,4 +310,8 @@ def parse_document_text(
         tema=tema,
         origem=origem,
         secoes=secoes,
+        aprovado_em=header_data.get("aprovado_em"),
+        assinada_em=header_data.get("assinada_em"),
+        classificacao=header_data.get("classificacao"),
+        header_raw=header_part,
     )
