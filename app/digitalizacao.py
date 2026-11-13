@@ -140,6 +140,9 @@ def ler_com_tesseract(conteudo: bytes, formato: str) -> ResultadoLeitura:
     return ResultadoLeitura(texto="\n".join(l.texto for l in linhas), linhas=linhas, motor="tesseract")
 
 
+MAX_BYTES_IMAGEM = 10 * 1024 * 1024
+FORMATOS_IMAGEM_ACEITOS = {"jpg", "jpeg", "png"}
+
 # Pode ser substituído nos testes (Bedrock simulado), sem rede.
 LeitorImagem = Callable[[bytes, str], ResultadoLeitura]
 leitor_customizado: Optional[LeitorImagem] = None
@@ -147,6 +150,16 @@ leitor_customizado: Optional[LeitorImagem] = None
 
 def ler_imagem(conteudo: bytes, formato: str) -> ResultadoLeitura:
     """Lê uma foto/scan (uma por vez). Tenta Bedrock e depois Tesseract."""
+    fmt = (formato or "").lower().lstrip(".")
+    if fmt not in FORMATOS_IMAGEM_ACEITOS:
+        raise LeituraFalhou(f"Formato '{formato}' não aceito. Envie JPG ou PNG.")
+    if len(conteudo) > MAX_BYTES_IMAGEM:
+        raise LeituraFalhou("Imagem excede o limite de 10 MB.")
+    if fmt == "png" and not conteudo.startswith(b"\x89PNG\r\n\x1a\n"):
+        raise LeituraFalhou("Conteúdo não corresponde a uma imagem PNG válida.")
+    if fmt in ("jpg", "jpeg") and not conteudo.startswith(b"\xff\xd8\xff"):
+        raise LeituraFalhou("Conteúdo não corresponde a uma imagem JPEG válida.")
+
     with _lock_leitura:
         if leitor_customizado is not None:
             return leitor_customizado(conteudo, formato)

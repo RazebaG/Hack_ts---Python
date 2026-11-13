@@ -102,7 +102,7 @@ def renderizar(cartoes: List[Cartao]) -> Dict[str, Any]:
             break
         blocos.extend(novos)
     texto = (cartoes[0].titulo or cartoes[0].conclusao) if cartoes else ""
-    return {"text": _corta(texto), "blocks": blocos[:LIMITE_BLOCOS]}
+    return {"text": _corta(_esc(texto)), "blocks": blocos[:LIMITE_BLOCOS]}
 
 
 def _mensagem_erro(e: ErroAPI) -> str:

@@ -99,7 +99,7 @@ class PerguntaResponse(BaseModel):
 
 
 class AvaliacaoRequest(BaseModel):
-    resposta_id: str = Field(..., description="Identificador da resposta avaliada (C13)")
+    resposta_id: str = Field(..., min_length=1, description="Identificador da resposta avaliada (C13)")
     util: bool = Field(..., description="Indica se a resposta foi útil (True/False)")
     motivo: Optional[str] = Field(None, description="Motivo opcional da avaliação")
     comentario: Optional[str] = Field(None, max_length=200, description="Comentário livre de até 200 caracteres")

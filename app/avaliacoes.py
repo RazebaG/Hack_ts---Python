@@ -42,6 +42,10 @@ class AvaliacoesRepository:
                         pass
 
     def registrar(self, req: AvaliacaoRequest) -> AvaliacaoResponse:
+        resposta_id = (req.resposta_id or "").strip()
+        if not resposta_id:
+            raise ValueError("resposta_id não pode ser vazio")
+
         registro_id = f"aval_{uuid.uuid4().hex[:12]}"
         timestamp = datetime.now(timezone.utc).isoformat()
 
