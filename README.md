@@ -1,4 +1,4 @@
-# Assistente do Arquivo Central de Normas (ACME)
+# ACME - Assistente do Arquivo Central de Normas (ACME)
 
 Backend de inteligência sobre o acervo normativo da ACME para o **HACKA/TS 2026** (Desafio 2 · Team 5 Clankers).
 
