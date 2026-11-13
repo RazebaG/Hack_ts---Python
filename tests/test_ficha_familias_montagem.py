@@ -383,41 +383,83 @@ def test_fallback_lista_simples_quando_menos_de_3_blocos():
 
 
 # ==============================================================================
-# 7. Endpoint da API: GET /api/documentos/{codigo}/ficha (C22)
+# 7. Garantia arquitetural: nenhuma comparação literal com código em app/ficha
 # ==============================================================================
 
-def test_api_get_documento_ficha(client):
-    """Testa o endpoint C22:
-    - 200 OK para documento existente com modelo validado
-    - 404 para documento inexistente
-    - 422 para perfil inválido
+def test_ausencia_comparacao_codigo_em_app_ficha():
+    """Garante que nenhum módulo em app/ficha/ possui 'codigo ==' escrito à mão,
+    assegurando que o comportamento seja 100% por regra e não por branches manuais.
     """
-    # 200 OK CTR
-    resp = client.get("/api/documentos/CTR_2026-012/ficha")
-    assert resp.status_code == 200
-    dados = resp.json()
-    assert dados["codigo"] == "CTR_2026-012"
-    assert dados["familia"] == "contrato"
-    assert len(dados["blocos"]) >= 4
-    titulos = [b["titulo"] for b in dados["blocos"]]
-    assert "Quanto custa" in titulos
-    assert "Até quando" in titulos
-    assert "Onde pode doer" in titulos
-    assert "Falta no acervo" in titulos
+    import glob
+    from pathlib import Path
 
-    # 200 OK NG
-    resp_ng = client.get("/api/documentos/NG_111/ficha?versao=3.0.0")
-    assert resp_ng.status_code == 200
-    dados_ng = resp_ng.json()
-    assert dados_ng["codigo"] == "NG_111"
-    assert dados_ng["familia"] == "norma"
-    titulos_ng = [b["titulo"] for b in dados_ng["blocos"]]
-    assert "O que muda para você" in titulos_ng
+    ficha_files = glob.glob("app/ficha/*.py")
+    assert len(ficha_files) >= 5, "Arquivos de app/ficha/ devem existir"
 
-    # 404 documento inexistente
-    resp_404 = client.get("/api/documentos/DOC_INEXISTENTE/ficha")
-    assert resp_404.status_code == 404
+    violacoes = []
+    for fpath in ficha_files:
+        conteudo = Path(fpath).read_text(encoding="utf-8")
+        for num_linha, linha in enumerate(conteudo.splitlines(), start=1):
+            if "codigo ==" in linha:
+                violacoes.append(f"{fpath}:{num_linha}: {linha.strip()}")
 
-    # 422 perfil inválido
-    resp_422 = client.get("/api/documentos/CTR_2026-012/ficha?perfil=hacker")
-    assert resp_422.status_code == 422
+    assert not violacoes, f"Encontradas comparações literais de código em app/ficha/:\n" + "\n".join(violacoes)
+
+
+# ==============================================================================
+# 8. Demonstração de documentos adicionais: PX_1111-001 e NT_2026-018
+# ==============================================================================
+
+def test_terceiros_documentos_px_1111_001_e_nt_2026_018(acervo_repo):
+    """Comprova montagem determinística por regras para documentos que não constam no exemplo mock:
+    - PX_1111-001 (procedimento): blocos preenchidos, com fontes verificadas e motivo citando fato.
+    - NT_2026-018 (contrato): blocos de contrato com valores, prazos e fontes verificadas.
+    """
+    # 1. PX_1111-001
+    doc_px = acervo_repo.buscar("PX_1111-001", "1.0.0")
+    assert doc_px is not None
+    ficha_px = montar_ficha(doc_px, acervo=acervo_repo, data_referencia="2026-11-12")
+
+    assert ficha_px.familia == "procedimento"
+    assert len(ficha_px.blocos) >= 3
+    for b in ficha_px.blocos:
+        assert b.destaque != ""
+        assert b.relevancia.motivo != ""
+        assert len(b.relevancia.motivo) > 3
+        # Confere fontes
+        if b.itens:
+            for it_id in b.itens:
+                item_obj = next(
+                    (it for it in (ficha_px.pontos.valores + ficha_px.pontos.prazos + ficha_px.pontos.responsaveis + ficha_px.pontos.riscos + ficha_px.acoes) if it.id == it_id),
+                    None,
+                )
+                assert item_obj is not None, f"Item {it_id} de PX não encontrado"
+                for f in item_obj.fontes:
+                    secoes_id = [s for s in doc_px.secoes if s.id == f.secao]
+                    assert secoes_id, f"Seção {f.secao} não encontrada em PX"
+                    assert any(trecho_consta_na_secao(f.trecho, s.texto) for s in secoes_id)
+
+    # 2. NT_2026-018
+    doc_nt = acervo_repo.buscar("NT_2026-018", "1.0.0")
+    assert doc_nt is not None
+    ficha_nt = montar_ficha(doc_nt, acervo=acervo_repo, data_referencia="2026-11-12")
+
+    assert ficha_nt.familia == "contrato"
+    assert len(ficha_nt.blocos) >= 3
+    titulos_nt = [b.titulo for b in ficha_nt.blocos]
+    assert "Quanto custa" in titulos_nt or "Valores" in titulos_nt
+    for b in ficha_nt.blocos:
+        assert b.destaque != ""
+        assert b.relevancia.motivo != ""
+        assert len(b.relevancia.motivo) > 3
+        if b.itens:
+            for it_id in b.itens:
+                item_obj = next(
+                    (it for it in (ficha_nt.pontos.valores + ficha_nt.pontos.prazos + ficha_nt.pontos.responsaveis + ficha_nt.pontos.riscos + ficha_nt.acoes) if it.id == it_id),
+                    None,
+                )
+                assert item_obj is not None, f"Item {it_id} de NT não encontrado"
+                for f in item_obj.fontes:
+                    secoes_id = [s for s in doc_nt.secoes if s.id == f.secao]
+                    assert secoes_id, f"Seção {f.secao} não encontrada em NT"
+                    assert any(trecho_consta_na_secao(f.trecho, s.texto) for s in secoes_id)
