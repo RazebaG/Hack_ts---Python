@@ -2,6 +2,8 @@
 
 Backend de inteligência sobre o acervo normativo da ACME para o **HACKA/TS 2026** (Desafio 2 · Team 5 Clankers).
 
+Transforma contratos, normas e políticas em decisões fundamentadas com citação auditável (`código · versão · seção · camada`), aponta contradições em radar determinístico, simula cenários "E se?" e integra-se à interface web React, Slack e Teams.
+
 ---
 
 ## Execução Local em 5 Passos
@@ -68,6 +70,21 @@ make eval    # Executa a avaliação de perguntas e respostas (/api/perguntar)
 # No diretório do Frontend (Hacka_ts-React):
 npm test -- --run   # Executa os testes unitários e de integração do frontend
 ```
+
+### Passo 6: Execução Alternativa via Container (Docker & Compose)
+
+Para rodar o backend encapsulado em container Docker:
+
+```bash
+# Via Docker Compose (recomendado: porta 8000 mapeada, healthcheck ativo)
+docker compose up --build -d
+
+# Ou via Makefile
+make docker-build
+make docker-run
+```
+
+Para o guia completo de arquitetura, homologação e deploy em nuvem na AWS via **Amazon ECS Express Gateway**, consulte [docs/DEPLOY.md](docs/DEPLOY.md).
 
 ---
 
@@ -152,10 +169,6 @@ curl -s localhost:3978/api/messages -H 'Content-Type: application/json' -d '{
   "deliveryMode":"expectReplies","text":"acervo Qual a antecedência mínima para pedir férias?",
   "from":{"id":"u"},"recipient":{"id":"agente"},"conversation":{"id":"c"}}'
 ```
-
-
-Transforma contratos, normas e políticas em decisões fundamentadas com citação auditável (`código · versão · seção · camada`), aponta contradições em radar determinístico, simula cenários "E se?" e integra-se à interface web React, Slack e Teams.
-
 
 ---
 

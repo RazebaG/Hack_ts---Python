@@ -1,0 +1,29 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: acme-normas-backend:latest
+    container_name: acme-normas-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - LLM_PROVIDER=${LLM_PROVIDER:-nenhum}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - AWS_PROFILE=${AWS_PROFILE:-hackats}
+      - BEDROCK_MODEL_ID=${BEDROCK_MODEL_ID:-amazon.nova-pro-v1:0}
+      - BEDROCK_FALLBACK_MODEL_ID=${BEDROCK_FALLBACK_MODEL_ID:-amazon.nova-lite-v1:0}
+      - BEDROCK_EMBED_MODEL_ID=${BEDROCK_EMBED_MODEL_ID:-us.cohere.embed-v4:0}
+      - API_URL=${API_URL:-http://localhost:8000}
+      - PAINEL_URL=${PAINEL_URL:-http://localhost:5173}
+    env_file:
+      - path: .env
+        required: false
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/saude"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
