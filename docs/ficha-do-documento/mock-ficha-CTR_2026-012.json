@@ -1,0 +1,117 @@
+{
+  "codigo": "CTR_2026-012",
+  "versao": "1.0.0",
+  "gerada_em": "2026-11-12T22:50:00-03:00",
+  "perfil": null,
+  "linguagem": "original",
+  "estado": "pronta",
+  "modo": { "ia": "bedrock", "modelo": "amazon.nova-pro-v1:0" },
+  "identidade": {
+    "titulo": "Contrato de Locação de Espaço",
+    "tipo": "CTR",
+    "tipo_nome": "Contrato",
+    "camada": { "sigla": "CTR", "tipo_nome": "Contrato", "grupo": "Instrumento", "subordinado_a": null },
+    "tema": { "assunto": "locacao", "serie": null, "serie_nome": null, "confirmado_por": "regra", "observacao": "Contrato tem numeração própria (ano e sequencial)" },
+    "fase": "Vigente",
+    "substituido": false,
+    "vigente_em": null,
+    "vigencia": { "texto": "30/11/2026 a 29/04/2027", "inicio": "2026-11-30", "fim": "2027-04-29", "dias_restantes": 168 },
+    "origem": "acervo",
+    "classificacao": "interna",
+    "metricas": { "secoes": 33, "palavras": 3900, "paginas_estimadas": 10, "leitura_integral_min": 12, "leitura_ficha_min": 3 }
+  },
+  "semaforo": { "nivel": "atencao", "motivos": ["Vistoria até 25/11/2026 (13 dias)", "NG_012 citada e ausente do acervo"] },
+  "governanca": {
+    "elaborado_por": { "valor": "Gerência de Compras e Contratos (GCO)", "fonte": { "campo": "Elaborado por", "trecho": "Elaborado por: Gerência de Compras e Contratos (GCO)" } },
+    "aprovado_por": { "valor": "Diretoria Administrativa e Financeira (DIRAF)", "fonte": { "campo": "Aprovado por", "trecho": "Aprovado por: Diretoria Administrativa e Financeira (DIRAF)" } },
+    "aprovado_em": { "valor": null, "fonte": null },
+    "assinada_em": { "valor": null, "fonte": null },
+    "vinculado_a": { "valor": null, "fonte": null },
+    "referencias": ["NT_2026-018", "NG_012"],
+    "cadeia": ["CTR_2026-012"]
+  },
+  "bluf": {
+    "id": "bluf-1",
+    "titulo": "Em uma frase",
+    "texto": "Locação de 8 estações de trabalho e uma sala de reunião por 150 dias (30/11/2026 a 29/04/2027), R$ 18.250,00 no total; a vistoria vence em 25/11/2026 e o pedido de prorrogação em 30/03/2027.",
+    "valor": null,
+    "origem": "resumo",
+    "fontes": [
+      { "codigo": "CTR_2026-012", "versao": "1.0.0", "secao": "Cláusula Segunda", "trecho": "O contrato vigora por 150 dias corridos, de 30/11/2026 a 29/04/2027.", "camada": null },
+      { "codigo": "CTR_2026-012", "versao": "1.0.0", "secao": "Cláusula Sétima", "trecho": "O aluguel mensal é de R$ 3.650,00, perfazendo o valor global de R$ 18.250,00 para os 5 meses de vigência.", "camada": null }
+    ]
+  },
+  "numeros": [
+    { "id": "n-valor", "titulo": "Valor global", "valor": "R$ 18.250,00", "texto": null, "origem": "literal",
+      "fontes": [ { "codigo": "CTR_2026-012", "versao": "1.0.0", "secao": "Cláusula Sétima", "trecho": "O aluguel mensal é de R$ 3.650,00, perfazendo o valor global de R$ 18.250,00 para os 5 meses de vigência.", "camada": null } ] },
+    { "id": "n-prazo", "titulo": "Próximo prazo: vistoria", "valor": "25/11/2026", "texto": null, "origem": "literal",
+      "fontes": [ { "codigo": "CTR_2026-012", "versao": "1.0.0", "secao": "Apêndice C", "trecho": "25/11/2026 | Último dia para a vistoria, antes da entrega | Cláusula Sexta e Anexo, item 5", "camada": null } ] },
+    { "id": "n-multa", "titulo": "Multa por inexecução (5% do valor global)", "valor": "R$ 912,50", "texto": null, "origem": "calculado", "calculo": "5% × R$ 18.250,00 = R$ 912,50",
+      "fontes": [ { "codigo": "CTR_2026-012", "versao": "1.0.0", "secao": "Apêndice B", "trecho": "Multa por inexecução | 5% × 18.250,00 | 912,50", "camada": null } ] }
+  ],
+  "acoes": [
+    { "id": "a-vistoria", "acao": "Fazer a vistoria e assinar o termo de entrega", "quem": "GOC (fiscal técnico) e LOCADORA",
+      "prazo": { "data": "2026-11-25", "regra": "até 5 dias corridos antes do início da vigência" },
+      "consequencia": "Sem o termo assinado não há registro do estado do espaço na entrega.", "urgencia": "alta", "origem": "resumo",
+      "fontes": [ { "codigo": "CTR_2026-012", "versao": "1.0.0", "secao": "Cláusula Sexta", "trecho": "A vistoria ocorre até 5 dias corridos antes do início da vigência.", "camada": null } ] },
+    { "id": "a-prorrogacao", "acao": "Decidir e pedir a prorrogação, se houver interesse", "quem": "LOCATÁRIA (GCO); GJU analisa o aditivo",
+      "prazo": { "data": "2027-03-30", "regra": "até 30 dias corridos antes do fim da vigência" },
+      "consequencia": "Passado o prazo, o contrato termina em 29/04/2027.", "urgencia": "media", "origem": "resumo",
+      "fontes": [ { "codigo": "CTR_2026-012", "versao": "1.0.0", "secao": "Cláusula Terceira", "trecho": "O pedido de prorrogação é feito pela LOCATÁRIA até 30 dias corridos antes do fim da vigência.", "camada": null } ] },
+    { "id": "a-atesto", "acao": "Atestar a prestação de cada mês", "quem": "GOC (fiscal técnico)",
+      "prazo": { "data": null, "regra": "até 5 dias úteis do recebimento da nota" },
+      "consequencia": "Sem atesto, não há pagamento.", "urgencia": "media", "origem": "literal",
+      "fontes": [ { "codigo": "CTR_2026-012", "versao": "1.0.0", "secao": "Cláusula Nona", "trecho": "O fiscal técnico atesta a prestação em até 5 dias úteis do recebimento da nota. Sem atesto, não há pagamento.", "camada": null } ] }
+  ],
+  "pontos": {
+    "obrigacoes": [
+      { "id": "o-1", "titulo": "A LOCATÁRIA deve zelar pelo espaço e devolvê-lo no estado em que o recebeu", "valor": null, "texto": null, "origem": "literal",
+        "fontes": [ { "codigo": "CTR_2026-012", "versao": "1.0.0", "secao": "Cláusula Quinta", "trecho": "zelar pelo espaço; (d) devolver o espaço no estado em que o recebeu", "camada": null } ] }
+    ],
+    "prazos": [
+      { "id": "p-1", "titulo": "Fim da vigência", "valor": "29/04/2027", "texto": null, "origem": "literal",
+        "fontes": [ { "codigo": "CTR_2026-012", "versao": "1.0.0", "secao": "Cláusula Segunda", "trecho": "O contrato vigora por 150 dias corridos, de 30/11/2026 a 29/04/2027.", "camada": null } ] },
+      { "id": "p-2", "titulo": "Nota fiscal", "valor": "até o dia 25 de cada mês", "texto": null, "origem": "literal",
+        "fontes": [ { "codigo": "CTR_2026-012", "versao": "1.0.0", "secao": "Cláusula Oitava", "trecho": "A LOCADORA emite a nota fiscal até o dia 25 de cada mês, referente ao mês seguinte", "camada": null } ] }
+    ],
+    "valores": [
+      { "id": "v-1", "titulo": "Aluguel mensal", "valor": "R$ 3.650,00", "texto": "Inclui condomínio, internet, energia e limpeza.", "origem": "literal",
+        "fontes": [ { "codigo": "CTR_2026-012", "versao": "1.0.0", "secao": "Cláusula Sétima", "trecho": "O aluguel mensal é de R$ 3.650,00", "camada": null } ] },
+      { "id": "v-2", "titulo": "Multa por rescisão até o 90º dia", "valor": "R$ 3.650,00", "texto": "Um aluguel mensal; a partir do 91º dia não há multa.", "origem": "literal",
+        "fontes": [ { "codigo": "CTR_2026-012", "versao": "1.0.0", "secao": "Cláusula Décima Terceira", "trecho": "a partir do 91º dia, não há multa.", "camada": null } ] }
+    ],
+    "riscos": [
+      { "id": "r-1", "titulo": "Desconto de R$ 121,67 por dia com internet fora do ar por mais de 4 horas", "valor": "R$ 121,67", "texto": null, "origem": "calculado", "calculo": "1/30 × R$ 3.650,00 = R$ 121,67 (arredondado)",
+        "fontes": [ { "codigo": "CTR_2026-012", "versao": "1.0.0", "secao": "Apêndice B", "trecho": "Desconto por dia de interrupção de internet superior a 4 horas | 1/30 × 3.650,00 | 121,67", "camada": null } ] },
+      { "id": "r-2", "titulo": "Sublocar, ceder ou emprestar o espaço é vedado", "valor": null, "texto": null, "origem": "literal",
+        "fontes": [ { "codigo": "CTR_2026-012", "versao": "1.0.0", "secao": "Cláusula Décima Sexta", "trecho": "É vedado sublocar, ceder ou emprestar o espaço, no todo ou em parte.", "camada": null } ] }
+    ],
+    "responsaveis": [
+      { "id": "q-1", "titulo": "GFI paga o aluguel até o dia 8 do mês de uso, após o atesto", "valor": null, "texto": null, "origem": "literal",
+        "fontes": [ { "codigo": "CTR_2026-012", "versao": "1.0.0", "secao": "Cláusula Décima", "trecho": "A GFI paga até o dia 8 do mês de uso, após o atesto", "camada": null } ] }
+    ],
+    "condicoes": [
+      { "id": "c-1", "titulo": "Dados pessoais dos usuários eliminados em até 90 dias após o fim do contrato", "valor": null, "texto": "Incidentes são comunicados em até 48 horas.", "origem": "literal",
+        "fontes": [ { "codigo": "CTR_2026-012", "versao": "1.0.0", "secao": "Cláusula Décima Oitava", "trecho": "eliminados em até 90 dias após o fim do contrato. A LOCADORA comunica incidentes à LOCATÁRIA em até 48 horas.", "camada": null } ] }
+    ]
+  },
+  "mapa_calor": [
+    { "secao_id": "Cláusula Primeira", "titulo": "Objeto", "ordem": 1, "peso": 0.03, "sinais": { "prazo": 0, "valor": 0, "obrigacao": 1, "risco": 0 }, "intensidade": 0.15 },
+    { "secao_id": "Cláusula Segunda", "titulo": "Prazo", "ordem": 2, "peso": 0.03, "sinais": { "prazo": 4, "valor": 0, "obrigacao": 0, "risco": 0 }, "intensidade": 0.55 },
+    { "secao_id": "Cláusula Sétima", "titulo": "Valor", "ordem": 7, "peso": 0.03, "sinais": { "prazo": 1, "valor": 4, "obrigacao": 0, "risco": 0 }, "intensidade": 0.7 },
+    { "secao_id": "Cláusula Décima Terceira", "titulo": "Rescisão pela LOCATÁRIA", "ordem": 13, "peso": 0.04, "sinais": { "prazo": 3, "valor": 1, "obrigacao": 0, "risco": 2 }, "intensidade": 0.85 },
+    { "secao_id": "Apêndice B", "titulo": "Memória de cálculo dos valores", "ordem": 25, "peso": 0.05, "sinais": { "prazo": 0, "valor": 9, "obrigacao": 0, "risco": 3 }, "intensidade": 1.0 }
+  ],
+  "alertas": [
+    { "tipo": "referencia_ausente", "titulo": "NG_012 é citada e não está no acervo", "explicacao": "A norma de alçadas é citada como base da aprovação, mas o texto dela não foi enviado ao acervo; a alçada não pode ser conferida na fonte.", "radar_id": null,
+      "fontes": [ { "codigo": "CTR_2026-012", "versao": "1.0.0", "secao": "Apêndice K", "trecho": "NG_012 | Estabelece as alçadas de aprovação aplicáveis à contratação.", "camada": null } ] }
+  ],
+  "perguntas_sugeridas": [
+    "Posso rescindir sem multa?",
+    "Quem paga o IPTU e os tributos do imóvel?",
+    "Até quando posso pedir a prorrogação?",
+    "O que acontece se a internet ficar fora do ar?"
+  ],
+  "cobertura": { "secoes_lidas": 33, "secoes_total": 33, "itens_verificados": 14, "itens_descartados": 0, "motivos_descarte": [] },
+  "_nota": "Exemplo ilustrativo. Os trechos foram copiados de data/acervo/locacao/CTR_2026-012 v1.0.0 (a menos de quebras de linha do arquivo original). Contagens de palavras, seções e mapa_calor são aproximadas e devem ser recalculadas pelo backend."
+}
