@@ -64,6 +64,8 @@ A documentação interativa da API estará disponível em: `http://localhost:800
 make test    # Executa a suíte de testes com pytest (110 testes)
 make smoke   # Executa o smoke test ponta a ponta com acervo real e validação de CORS
 make eval    # Executa a avaliação de perguntas e respostas (/api/perguntar)
+python -m eval.sinais   # Sinais do mapa de posição (F-02, #42): % de seções marcadas e recall contra data/curadoria
+                        # (--prototipo mostra as regras antigas, para comparar)
 
 # No diretório do Frontend (Hacka_ts-React):
 npm test -- --run   # Executa os testes unitários e de integração do frontend
