@@ -18,7 +18,7 @@
     "vigencia": { "texto": "30/11/2026 a 29/04/2027", "inicio": "2026-11-30", "fim": "2027-04-29", "dias_restantes": 168 },
     "origem": "acervo",
     "classificacao": "interna",
-    "metricas": { "secoes": 33, "palavras": 3900, "paginas_estimadas": 10, "leitura_integral_min": 12, "leitura_ficha_min": 3 }
+    "metricas": { "secoes": 43, "palavras": 3900, "paginas_estimadas": 10, "leitura_integral_min": 12, "leitura_ficha_min": 3 }
   },
   "semaforo": { "nivel": "atencao", "motivos": ["Vistoria até 25/11/2026 (13 dias)", "NG_012 citada e ausente do acervo"] },
   "governanca": {
@@ -112,6 +112,6 @@
     "Até quando posso pedir a prorrogação?",
     "O que acontece se a internet ficar fora do ar?"
   ],
-  "cobertura": { "secoes_lidas": 33, "secoes_total": 33, "itens_verificados": 14, "itens_descartados": 0, "motivos_descarte": [] },
-  "_nota": "Exemplo ilustrativo. Os trechos foram copiados de data/acervo/locacao/CTR_2026-012 v1.0.0 (a menos de quebras de linha do arquivo original). Contagens de palavras, seções e mapa_calor são aproximadas e devem ser recalculadas pelo backend."
+  "cobertura": { "secoes_lidas": 43, "secoes_total": 43, "itens_verificados": 14, "itens_descartados": 0, "motivos_descarte": [] },
+  "_nota": "Exemplo ilustrativo. Os 18 trechos de fonte foram verificados com trecho_consta_na_secao contra data/acervo/locacao/CTR_2026-012 v1.0.0 (o acervo tem 43 seções neste documento). Contagens de palavras, seções e mapa_calor são aproximadas e devem ser recalculadas pelo backend."
 }
