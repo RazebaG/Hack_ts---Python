@@ -1,8 +1,23 @@
 # Ficha do Documento + Fontes em evidência: requisitos v1 (PROPOSTA · 12/11/2026)
 
 > **Status:** proposta para a equipe aprovar. Depois de aprovada, o backend gera issues a partir do `PRD-FICHA-DO-DOCUMENTO.md` e o frontend desenha as telas a partir do `FLUXO-DE-TELAS-FICHA-v1.md`.
-> **Continua:** `REQUISITOS-v3.md` (numeração segue: RF44 em diante, RNF19 em diante, contrato C22 em diante, telas T14 em diante).
+> **Continua:** `REQUISITOS-v3.md` (numeração segue: RF44 a RF76, RNF19 em diante, contrato C22 em diante, telas T14 em diante).
 > **Origem:** insight do mentor do desafio (produto e técnica) + lacuna apontada pela equipe (o usuário não vê quais documentos foram consultados).
+
+---
+
+## 0. Revisão de 13/11: a experiência muda (decisão da equipe)
+
+A primeira versão deixava o resumo numa tela secundária (a Ficha), que só se alcançava pelo catálogo ou por uma citação. A equipe pediu o oposto: **na tela inicial, o documento importante já aparece desmiuçado, com as informações precisas para decidir**, de forma intuitiva e agradável. Decisões:
+
+1. **A T1 (início) mantém o topo atual** (título "Arquivo Central de Normas" e os 4 atalhos: Tirar Dúvida, Regras que Mudaram, Consultar Acervo, Montar Relatório) **e ganha, logo abaixo, "Documentos que pedem sua atenção"**: lista curta (3 a 5 itens) para a pessoa escolher, por perfil.
+2. O documento escolhido abre ali mesmo na **Mesa de decisão** (componente `MesaDocumento`): faixa "Precisa de você", frase-resumo, mapa de posição, blocos e detalhe com o trecho exato.
+3. **Os blocos mudam conforme o tipo do documento** (4 famílias, seção 2.2): um contrato não tem os mesmos blocos que uma norma.
+4. Os blocos são **ordenados pelo que pesa na decisão** e cada um diz por que está ali ("1º · maior valor", "2º · vence em 13 dias").
+5. O resto da T1 atual (faixa do radar, resumo por área, próximo prazo, dúvidas frequentes) **continua** abaixo da mesa.
+6. A Ficha (T14) passa a ser a **versão em página inteira da mesma Mesa**, com governança completa, cobertura e alertas: reaproveita o componente, não é uma tela feita do zero.
+
+Requisitos novos: **RF71 a RF76** (seção 5.4). RF44 a RF57 continuam valendo; onde dizem "Ficha", leia "Mesa de decisão (T1 e T14)".
 
 ---
 
@@ -44,6 +59,21 @@ Uma tela por documento, em **três profundidades**, sem trocar de página:
 | D13 | **Perguntas sugeridas por documento** ("Posso rescindir sem multa?") que abrem o chat já limitado àquele documento | Liga a Ficha ao Pergunte (T2) | P0 | S |
 
 **Corte recomendado para o MVP (sobram ~8 h até o fim do evento):** D2, D3, D4 (versão simples), D5, D6, D9, D13 no P0; D1 por perfil, D7, D8, D10, D11, D12 entram se sobrar fôlego, nessa ordem (D7 primeiro: é o que mais aparece no pitch).
+
+### 2.2 Blocos por família de documento (decisão da equipe: cada tipo tem os seus)
+
+A **família** vem da taxonomia do catálogo (sigla e grupo, campo `camada`), **não da IA**. Cada família tem de 4 a 6 blocos; a **relevância** reordena os blocos de cada documento. Bloco sem conteúdo não aparece.
+
+| Família | Tipos | Blocos (ordem inicial) | Prio |
+|---|---|---|---|
+| **Contrato e instrumento** | CTR (e NT com valor e prazo) | Quanto custa · Até quando · Quem faz o quê · Onde pode doer · Regras que valem · Falta no acervo | P0 |
+| **Norma e regulamento** | NG, RG | O que muda para você · Prazos que valem · Quem faz o quê · Limites e valores · Penalidades e exceções · Versão em vigor e o que mudou · Documentos ligados | P0 |
+| **Procedimento, guia e fluxo** | PX, GU, FL, FM, TB | Passo a passo em 5 linhas · Quem faz cada etapa · Prazos por etapa · Formulários e tabelas usados · Onde costuma travar · Norma de origem | P1 |
+| **Nota técnica e comunicado** | NT, CT | Decisão e o porquê · Valores e alçada · Prazo e vigência · Impacto em outras normas · Documentos citados e ausentes | P1 |
+
+Cada bloco tem: **título**, **destaque** (um número ou uma frase curta, em tamanho grande), **apoio** (até 2 linhas), **posição na relevância** com o **motivo** em palavras simples, **sinal** (valor, prazo, responsável, risco, regra), **seções do mapa** que ele acende e os **itens** com fonte que o sustentam.
+
+**Regra de relevância (RF74):** a posição sai de uma pontuação por regra, não de opinião da IA: prazo mais próximo (maior peso), valor mais alto do documento, risco financeiro, divergência ou versão substituída, mudança recente. A IA só desempata e escreve o motivo, e o motivo precisa citar o fato ("vence em 13 dias", "maior valor do contrato").
 
 ## 3. Funcionalidade 2 · Fontes em evidência
 
@@ -113,6 +143,19 @@ Prioridade: **P0** = MVP · **P1** = se sobrar tempo · **P2** = depois do event
 |---|---|---|---|---|
 | RF69 | **Fila de atenção:** lista de cartões compactos (BLUF curto, semáforo, próximo prazo, nº de alertas, tempo de leitura) ordenada por urgência; filtros por tema, tipo, perfil e situação; paginação | P1 | T17 | C25 |
 | RF70 | **Busca e filtro por sinal:** "documentos com prazo nos próximos 30 dias", "com multa", "com divergência" | P1 | T17 | C25 |
+
+### 5.4 Revisão 13/11: a Mesa de decisão na tela inicial
+
+| ID | Requisito | Prio | Tela | Contrato |
+|---|---|---|---|---|
+| RF71 | **Tela inicial:** mantém o topo atual (título e 4 atalhos) e ganha abaixo **"Documentos que pedem sua atenção"**: de 3 a 5 chips, cada um com semáforo, código e o motivo curto ("vistoria em 13 dias"). Ordem por urgência e pelo perfil escolhido. Escolher um chip abre a Mesa embaixo, sem trocar de página | P0 | T1 | C25 (`limite`) |
+| RF72 | **Mesa de decisão:** faixa "Precisa de você" (ação, quem, até quando, consequência), frase-resumo, selos de governança, mapa de posição, blocos, detalhe e campo de pergunta limitado ao documento | P0 | T1, T14 | C22 |
+| RF73 | **Blocos por família** (seção 2.2), de 4 a 6 por documento, com destaque grande, apoio curto e selo de relevância | P0 (contrato e norma) · P1 (procedimento e nota técnica) | T1, T14 | C22 (`familia`, `blocos`) |
+| RF74 | **Relevância com motivo:** cada bloco mostra "1º · maior valor", "2º · vence em 13 dias"; a posição é calculada por regra | P0 | T1, T14 | C22 |
+| RF75 | **Mapa ↔ bloco:** escolher um bloco acende no mapa as seções de onde ele veio; passar o mouse numa seção mostra o título; escolher uma seção mostra os blocos que dependem dela | P0 | T1, T14 | C22 (`secoes_mapa`) |
+| RF76 | **Detalhe com a fonte:** ao escolher um bloco, mostrar o trecho exato, a cláusula, o selo de origem e o atalho "Abrir no texto completo" (T8) | P0 | T1, T14 | C22 |
+
+Na lista de prioridades da seção 2.1, **RF71 a RF76 entram no P0 e substituem, em tamanho, o D3/D4 isolados**: o mapa e "o que isso exige de você" passam a viver dentro da Mesa.
 
 ## 6. Requisitos não funcionais (RNF19 em diante)
 

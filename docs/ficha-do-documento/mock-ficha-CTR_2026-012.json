@@ -30,7 +30,27 @@
     "referencias": ["NT_2026-018", "NG_012"],
     "cadeia": ["CTR_2026-012"]
   },
-  "bluf": {
+  "familia": "contrato",
+  "blocos": [
+    { "id": "b-custo", "titulo": "Quanto custa", "destaque": "R$ 18.250,00", "apoio": "R$ 3.650 por mês, 5 meses. Inclui condomínio, internet, energia e limpeza.",
+      "relevancia": { "posicao": 1, "motivo": "maior valor do contrato", "pontuacao": 0.78 }, "sinal": "valor",
+      "secoes_mapa": ["Cláusula Sétima", "Apêndice B"], "itens": ["n-valor", "v-1"] },
+    { "id": "b-prazo", "titulo": "Até quando", "destaque": "25/11/2026", "apoio": "Vistoria. Prorrogar até 30/03/2027. Fim da vigência em 29/04/2027.",
+      "relevancia": { "posicao": 2, "motivo": "vence em 13 dias", "pontuacao": 0.74 }, "sinal": "prazo",
+      "secoes_mapa": ["Cláusula Segunda", "Cláusula Terceira", "Cláusula Sexta", "Apêndice C"], "itens": ["n-prazo", "a-vistoria", "a-prorrogacao", "p-1"] },
+    { "id": "b-quem", "titulo": "Quem faz o quê", "destaque": "GOC · GFI · GCO", "apoio": "GOC atesta em 5 dias úteis. GFI paga até o dia 8 do mês de uso.",
+      "relevancia": { "posicao": 3, "motivo": "rotina mensal de pagamento", "pontuacao": 0.41 }, "sinal": "responsavel",
+      "secoes_mapa": ["Cláusula Nona", "Cláusula Décima"], "itens": ["a-atesto", "q-1", "p-2"] },
+    { "id": "b-risco", "titulo": "Onde pode doer", "destaque": "R$ 912,50", "apoio": "Multa por inexecução (5% do valor global). Rescindir até o 90º dia custa um aluguel.",
+      "relevancia": { "posicao": 4, "motivo": "risco financeiro", "pontuacao": 0.39 }, "sinal": "risco",
+      "secoes_mapa": ["Cláusula Décima Terceira", "Apêndice B"], "itens": ["n-multa", "v-2", "r-1"] },
+    { "id": "b-regras", "titulo": "Regras que valem", "destaque": "Sem sublocar", "apoio": "Dados pessoais eliminados em até 90 dias após o fim do contrato.",
+      "relevancia": { "posicao": 5, "motivo": "consulta quando surgir dúvida", "pontuacao": 0.22 }, "sinal": "regra",
+      "secoes_mapa": ["Cláusula Décima Sexta", "Cláusula Décima Oitava"], "itens": ["r-2", "c-1", "o-1"] },
+    { "id": "b-falta", "titulo": "Falta no acervo", "destaque": "NG_012", "apoio": "A norma de alçadas é citada e não foi enviada; a alçada não pode ser conferida na fonte.",
+      "relevancia": { "posicao": 6, "motivo": "referência ausente", "pontuacao": 0.2 }, "sinal": "alerta",
+      "secoes_mapa": ["Apêndice K"], "itens": [], "alerta": 0 }
+  ],  "bluf": {
     "id": "bluf-1",
     "titulo": "Em uma frase",
     "texto": "Locação de 8 estações de trabalho e uma sala de reunião por 150 dias (30/11/2026 a 29/04/2027), R$ 18.250,00 no total; a vistoria vence em 25/11/2026 e o pedido de prorrogação em 30/03/2027.",

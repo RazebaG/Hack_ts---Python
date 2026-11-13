@@ -7,6 +7,8 @@
 
 ---
 
+> **Revisão 13/11 (decisão da equipe):** a experiência principal passa a ser a **tela inicial**, com a lista "Documentos que pedem sua atenção" e a **Mesa de decisão**; os blocos mudam por **família de documento** (contrato, norma, procedimento, nota técnica) e são **ordenados por relevância calculada por regra**. Impacto no backlog: novas issues **F-17** e **F-18** (P0), **F-12 vira P0 em versão leve** (lista de atenção com `limite`), e o corte da seção 10 foi atualizado. O contrato está em `CONTRATO-API-ADENDO-v0.4.md`, seção "Revisão 13/11".
+
 ## 1. Problema e meta
 
 O acervo atual tem curadoria **manual** (um YAML por perspectiva) e documentos curtos. O mentor pede o oposto: **qualquer documento, até 100 páginas, em 5 minutos de leitura, para até 1.000 documentos**, com fonte verificável. Precisamos de uma **ficha gerada automaticamente**, verificada contra o texto e guardada em cache.
@@ -83,6 +85,15 @@ O acervo atual tem curadoria **manual** (um YAML por perspectiva) e documentos c
 
 Os `motivos` listam em português simples o que disparou.
 
+### 3.5 Famílias, blocos e relevância (revisão 13/11)
+
+- **Família:** derivada de `camada.sigla` e `camada.grupo` (taxonomia já existente em `app/taxonomia.py`): CTR e NT com valor e prazo → `contrato`; NG e RG → `norma`; PX, GU, FL, FM, TB → `procedimento`; NT e CT sem valor → `nota_tecnica`. Tabela `FAMILIA_BLOCOS` em `app/ficha/familias.py` define, por família, os blocos (título, sinal, regra de preenchimento).
+- **Preenchimento do bloco (regra primeiro):** cada bloco escolhe seus candidatos por sinal (valor, prazo, responsável, risco, regra) a partir de `candidatos.py`; a IA só redige o `apoio` e o `motivo`. O `destaque` é o item de maior peso do sinal (ex.: o valor global em "Quanto custa").
+- **Relevância por regra (`relevancia.py`):** pontuação = 0,35 × urgência de prazo (1 se ≤ 7 dias, 0,6 se ≤ 30, 0,2 se ≤ 90) + 0,25 × peso do valor (valor do bloco ÷ maior valor do documento) + 0,2 × risco (multa, rescisão, vedação) + 0,15 × divergência ou versão substituída + 0,05 × mudança recente. **Os pesos são um ponto de partida; calibrar no eval (F-10).** Empate: ordem da família. O `motivo` é um texto curto montado do fato que mais pesou ("vence em 13 dias", "maior valor do contrato"); a IA pode reescrever, desde que mantenha o fato.
+- **Mapa:** `secoes_mapa` de cada bloco = seções dos itens do bloco (via `fontes[].secao`).
+- **Sem bloco vazio:** bloco sem item verificado é omitido; família com menos de 3 blocos preenchidos cai para o modo "lista de pontos" (sem erro).
+- **Lista de atenção (home):** `triagem.py` calcula, por documento, o relance leve (semáforo, próximo prazo, motivo) sem IA e ordena por urgência e perfil.
+
 ## 4. Modelo de dados (Pydantic, `app/ficha/modelos.py`)
 
 Espelhar exatamente o contrato C22: `FichaDocumento`, `Identidade`, `Metricas`, `Semaforo`, `Governanca` (com `CampoGov{valor, fonte}`), `ItemFicha`, `Acao`, `CelulaMapa`, `Alerta`, `Cobertura`, `ProgressoFicha`. `origem` é `Literal["literal","resumo","calculado"]`. `ItemFicha.fontes` com `min_length=1`. Reusar `Fonte` e `Camada` de `app/models.py`. Atualizar o contrato (`docs/CONTRATO-API-ADENDO-v0.4.md`) junto com o código.
@@ -140,20 +151,22 @@ Convenções do repositório: label `orca:pronto`, prioridade `P0/P1`, `Depende 
 | **F-08** | Documento sintético de ~100 páginas e lote de carga (script gerador) | P0 | — | M (2 h) | 1 contrato sintético de ~100 págs (≥ 90 seções, valores, prazos e riscos plausíveis, marcado como sintético) + gerador de 50 documentos curtos variados para a triagem; sem dado real |
 | **F-09** | Fontes em evidência na API: `documentos[]`, `consultados[]`, `escopo` em `/api/perguntar` | P0 | — | M (2 h) | Pergunta de férias lista `NG_111 v3.0.0` citado e avisa a v2 substituída; escopo fixado só recupera do documento; abstenção lista pesquisados |
 | **F-10** | Avaliação da ficha (`eval/ficha.py`, golden set, doc `AVALIACAO-FICHA.md`) e 2 casos no smoke | P0 | F-04, F-08 | M (2 h) | Tabela de métricas; recall ≥ 90% e 0 itens sem fonte no golden set |
+| **F-17** | Famílias e blocos: `familias.py` (tabela de blocos por família), preenchimento por sinal, `Bloco` no modelo, `secoes_mapa`, omissão de bloco vazio (revisão 13/11) | P0 | F-03, F-05 | M (2 h) | `CTR_2026-012` → família `contrato` com os 6 blocos esperados; `NG_111` → `norma`; destaque do bloco "Quanto custa" = R$ 18.250,00 com fonte; bloco sem item verificado não sai |
+| **F-18** | Relevância por regra e motivo (`relevancia.py`) e lista de atenção leve: `GET /api/ficha/triagem?limite=` (revisão 13/11) | P0 | F-17, F-02 | M (2 h) | Ordem determinística e testada; `CTR_2026-012` tem "Até quando" no topo quando a vistoria está a ≤ 13 dias; motivo cita o fato; lista com `limite=5` em < 1 s sem gerar ficha |
 | **F-11** | Apresentação C24 (8 cartões derivados da ficha) | P1 | F-07 | S (1 h) | 8 cartões com tempo somando ~300 s; cada item com fonte |
-| **F-12** | Triagem C25 (relance de todos, urgência, filtros, paginação) | P1 | F-02, F-06, F-08 | M (2 h) | 1.000 itens (do gerador) respondem em < 1 s sem gerar nada; ordenação por urgência testada |
+| **F-12** | Triagem C25 completa (filtros, paginação, sinal, lterado_desde; a versão leve com limite é a F-18) | P1 | F-02, F-06, F-08 | M (2 h) | 1.000 itens (do gerador) respondem em < 1 s sem gerar nada; ordenação por urgência testada |
 | **F-13** | Perfil e linguagem simples na ficha (ordem e redação por perfil) | P1 | F-04 | S (1,5 h) | `perfil=financeiro` sobe valores; `linguagem=simples` reescreve só texto, mantém fontes |
 | **F-14** | Delta de versão na ficha (reuso de `/api/comparar`) | P1 | F-07 | S (1 h) | NG_111 mostra "o que mudou da v2 para a v3" |
 | **F-15** | Cartão da ficha e "Fontes consultadas" no Slack e no Teams (`/ficha`) | P1 | F-07, F-09 | M (2 h) | Cartão neutro com relance e botão; testes de renderização |
 | **F-16** | Endurecimento pós-MVP: filtro por classificação (RBAC #22), PII, retenção do cache | P2 | #22 | M | Fora do MVP |
 
-**Soma dos P0:** F-01…F-10 ≈ 17–19 h de trabalho de agente em série. **Com 2 desktops (caminhos A e B) em paralelo e ~8 h até o fim do evento, não cabe tudo.** Veja o corte na seção 10.
+**Soma dos P0:** F-01…F-10 e F-17, F-18 ≈ 21–23 h de trabalho de agente em série. **Com 2 desktops (caminhos A e B) em paralelo e ~8 h até o fim do evento, não cabe tudo.** Veja o corte na seção 10.
 
 ## 10. Corte recomendado (o que entra se o tempo for curto)
 
 | Faixa | Itens | Resultado demonstrável |
 |---|---|---|
-| **Mínimo viável (≈ 6–7 h, 2 caminhos)** | F-01, F-02, F-03, F-05, F-07, F-09 + F-08 (só o documento grande, sem o gerador de 50) | Ficha extrativa com governança, números, prazos, mapa de calor, cobertura e fontes em evidência; documento de 100 págs; **sem IA nova** (a IA que já existe responde às perguntas) |
+| **Mínimo viável (≈ 7–8 h, 2 caminhos)** | F-01, F-02, F-03, F-05, F-07, F-09, **F-17, F-18** + F-08 (só o documento grande, sem o gerador de 50) | Mesa de decisão na tela inicial com blocos por família ordenados por relevância, governança, mapa de posição, cobertura e fontes em evidência; documento de 100 págs; **sem IA nova** (a IA que já existe responde às perguntas) |
 | **Mínimo + IA** | + F-06 (cache) e F-04 (BLUF e ações) | BLUF e "o que isso exige de você" com fonte; cache |
 | **Completo P0** | + F-10 | Eval com métricas para o pitch |
 | **Se sobrar** | F-11 (apresentação) → F-12 (triagem) → F-13/F-14/F-15 | Pitch do documento e fila de atenção |

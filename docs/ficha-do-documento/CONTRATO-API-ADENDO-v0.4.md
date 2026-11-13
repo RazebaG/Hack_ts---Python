@@ -140,3 +140,43 @@ Acrescenta `fichas: { prontas: int, total: int }` e `autenticacao: "ligada" | "d
 ## Perfis e `perfil` na ficha (P1)
 
 `perfil` não muda os dados, só a **ordem** e o texto do `bluf`/`acoes`; a lista completa de pontos continua a mesma. O cache guarda uma variante por perfil usado.
+
+---
+
+## Revisão 13/11: blocos por família e lista de atenção (tela inicial)
+
+### C22 · campos novos em `FichaDocumento`
+
+```
+familia: "contrato" | "norma" | "procedimento" | "nota_tecnica",     // vem da taxonomia (camada), não da IA
+blocos: [Bloco],                                                       // 4 a 6, já ordenados por relevância
+
+Bloco {
+  id, titulo,                                  // ex.: "Quanto custa", "O que muda para você"
+  destaque: string,                            // número ou frase curta (tamanho grande)
+  apoio: string | null,                        // até 2 linhas
+  relevancia: { posicao: int, motivo: string, pontuacao: float },   // posição por regra; motivo em palavras simples e com fato
+  sinal: "valor" | "prazo" | "responsavel" | "risco" | "regra" | "alerta",
+  secoes_mapa: [string],                       // secao_id das seções que o bloco acende no mapa
+  itens: [string],                             // ids de ItemFicha/Acao (as fontes ficam neles)
+  alerta?: int                                 // índice em alertas[], quando o bloco vem do radar
+}
+```
+
+- **`numeros` fica descontinuado:** o `destaque` de cada bloco o substitui. Mantido na resposta por compatibilidade até o frontend migrar.
+- `blocos[].itens` referencia ids existentes em `acoes` e `pontos`: toda afirmação continua com fonte verificada (RNF20). Bloco sem item verificado não é devolvido.
+- A ordem de `blocos` é a ordem de exibição; `relevancia.posicao` começa em 1.
+- Pontuação de relevância (regra, ver PRD seção 3.5): prazo mais próximo, valor, risco financeiro, divergência ou versão substituída, mudança recente.
+
+### C25 · lista de atenção da tela inicial vira P0
+
+`GET /api/ficha/triagem?limite=5&perfil=gestor` devolve os documentos mais urgentes para o perfil, cada um com `semaforo`, `bluf_curto`, `proximo_prazo`, `motivo_curto` (ex.: "vistoria em 13 dias") e `familia`. `limite` (1 a 20, padrão 5). Só usa o cache e o relance extrativo; nunca gera ficha. Sem nenhum documento urgente: `itens: []`.
+
+### Famílias e blocos (referência)
+
+| `familia` | `blocos[].titulo` possíveis |
+|---|---|
+| `contrato` | Quanto custa · Até quando · Quem faz o quê · Onde pode doer · Regras que valem · Falta no acervo |
+| `norma` | O que muda para você · Prazos que valem · Quem faz o quê · Limites e valores · Penalidades e exceções · Versão em vigor e o que mudou · Documentos ligados |
+| `procedimento` (P1) | Passo a passo em 5 linhas · Quem faz cada etapa · Prazos por etapa · Formulários e tabelas usados · Onde costuma travar · Norma de origem |
+| `nota_tecnica` (P1) | Decisão e o porquê · Valores e alçada · Prazo e vigência · Impacto em outras normas · Documentos citados e ausentes |
