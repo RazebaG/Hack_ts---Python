@@ -5,7 +5,7 @@ import os
 import re
 import unicodedata
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
 
@@ -39,6 +39,7 @@ from app.acervo import AcervoRepository
 from app.models import Camada, Citacao, Secao
 from app.taxonomia import derivar_camada
 from app.bedrock import gerar_embeddings, get_llm_provider
+from app.rbac import get_rbac
 
 logger = logging.getLogger(__name__)
 
@@ -131,6 +132,7 @@ class SectionItem:
     words_set: Set[str]
     stems_set: Set[str]
     raw_text: str
+    assunto: str = ""
 
 
 @dataclass
@@ -256,6 +258,7 @@ class BuscadorLexico:
                     tipo_nome=d.tipo_nome,
                     vinculado_a=d.vinculado_a,
                     camada=d.camada,
+                    assunto=getattr(d, "assunto", ""),
                     tokens=tokens,
                     len=len(tokens),
                     tf=Counter(tokens),
@@ -310,8 +313,8 @@ class BuscadorLexico:
             trecho = trecho[: LIMITE_TRECHO - 3].rstrip() + "..."
         return trecho
 
-    def buscar(self, query: str, top_k: int = 3) -> Tuple[bool, List[ResultadoBusca], List[str]]:
-        """Realiza busca lexical sobre as seções.
+    def buscar(self, query: str, top_k: int = 3, cargo: Optional[str] = None) -> Tuple[bool, List[ResultadoBusca], List[str]]:
+        """Realiza busca lexical sobre as seções com filtro por cargo (RBAC).
 
         Retorna:
             (consta: bool, resultados: List[ResultadoBusca], avisos: List[str])
@@ -342,8 +345,11 @@ class BuscadorLexico:
         b = 0.75
         scored: List[Tuple[float, float, SectionItem]] = []
         avisos_detectados: List[str] = []
+        rbac = get_rbac()
 
         for s in self.sections:
+            if cargo and not rbac.documento_permitido(cargo, s):
+                continue
             tf = s.tf
             norm_len = k1 * (1 - b + b * (s.len / self.avgdl))
             score = 0.0

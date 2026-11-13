@@ -5,6 +5,7 @@ __pycache__/
 .coverage
 htmlcov/
 data/avaliacoes.jsonl
+data/rbac/*.jsonl
 .env
 data/cache/
 

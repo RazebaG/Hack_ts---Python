@@ -180,6 +180,21 @@ Todos os endpoints operam em JSON UTF-8 com suporte a CORS para `http://localhos
 | `POST` | `/api/simular` | Simulador de cenários "E se?" com marcos e impactos | `postSimular()` | ✓ Conforme |
 | `POST` | `/api/avaliacoes` | Registro de feedback útil/não-útil por canal | `avaliacoesApi` | ✓ Conforme |
 | `GET` | `/api/avaliacoes/resumo` | Métricas consolidadas de avaliações por canal | `avaliacoesApi` | ✓ Conforme |
+| `GET` | `/api/rbac/usuarios` | Fixture de usuários e cargos para demonstração do RBAC | `rbacApi` | ✓ Conforme |
+| `GET` | `/api/rbac/matriz` | Matriz de permissões de acesso por cargo | `rbacApi` | ✓ Conforme |
+
+---
+
+## Controle de Acesso Baseado em Cargo (RBAC) · issue #22
+
+Demonstração de segurança e conformidade de acesso aos dados para o júri do hackathon:
+- **Matriz de permissões (`data/rbac/matriz.yaml`):** define alçadas por cargo (`empregado`, `gestor`, `rh`, `financeiro`, `juridico`, `diretoria`).
+- **Fixture de identidades (`data/rbac/usuarios.yaml`):** e-mails sintéticos corporativos (ex.: `maria.emp@acme.test`, `bruno.fin@acme.test`, `diretoria@acme.test`).
+- **Cena de 30s Empregado × Financeiro:**
+  - `X-Cargo: empregado` (ou `email: maria.emp@acme.test`) perguntando *"Qual o valor da multa por inexecução no Apêndice B do contrato de coworking?"* → abstenção segura (`consta: false`, `citacoes: []`), sem vazamento do contrato `CTR_2026-012`.
+  - `X-Cargo: financeiro` (ou `email: bruno.fin@acme.test`) com a mesma pergunta → recupera `CTR_2026-012 v1.0.0 §Apêndice B` com `R$ 912,50`.
+- **Enforcement na API:** tentativa de acesso direto a documento, perspectiva ou radar sem autorização retorna HTTP 403 Forbidden.
+- **Trilha de auditoria:** registros locais em `data/rbac/audit.jsonl` sem PII (`timestamp`, `cargo`, `endpoint`, `recurso`, `status`).
 
 ---
 

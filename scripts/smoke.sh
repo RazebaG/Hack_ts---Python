@@ -199,9 +199,43 @@ else
     fail "Caso 7 divergente" "DOC_TOTAL=${DOC_TOTAL}, CAMADA=${TODOS_TEM_CAMADA}, TEMA=${TODOS_TEM_TEMA}"
 fi
 
+# ------------------------------------------------------------------------------
+# Caso 8: Controle de acesso RBAC por cargo (Cena Empregado x Financeiro - Issue #22)
+# ------------------------------------------------------------------------------
+echo "[8/8] Caso 8: RBAC por cargo (cena Empregado x Financeiro na multa do coworking)..."
+CASO8_PERGUNTA="Qual o valor da multa por inexecução no Apêndice B do contrato de coworking?"
+CASO8_EMP_RES=$(curl -s -X POST "${BASE_URL}/api/perguntar" \
+    -H "Content-Type: application/json" \
+    -H "X-Cargo: empregado" \
+    -d "{\"pergunta\": \"${CASO8_PERGUNTA}\", \"perfil\": \"empregado\"}")
+
+EMP_CONSTA=$(echo "${CASO8_EMP_RES}" | jq -r '.consta')
+EMP_CIT_COUNT=$(echo "${CASO8_EMP_RES}" | jq -r '.citacoes | length')
+
+CASO8_FIN_RES=$(curl -s -X POST "${BASE_URL}/api/perguntar" \
+    -H "Content-Type: application/json" \
+    -H "X-Cargo: financeiro" \
+    -d "{\"pergunta\": \"${CASO8_PERGUNTA}\", \"perfil\": \"financeiro\"}")
+
+FIN_CONSTA=$(echo "${CASO8_FIN_RES}" | jq -r '.consta')
+FIN_TEM_CTR=$(echo "${CASO8_FIN_RES}" | jq -r 'any(.citacoes[]; .codigo == "CTR_2026-012")')
+FIN_TEM_912=$(echo "${CASO8_FIN_RES}" | jq -r 'if .resposta | contains("912,50") then "true" else "false" end')
+
+# Bloqueio 403 direto
+STATUS_EMP_CTR=$(curl -s -o /dev/null -w "%{http_code}" "${BASE_URL}/api/documentos/CTR_2026-012" -H "X-Cargo: empregado")
+STATUS_FIN_CTR=$(curl -s -o /dev/null -w "%{http_code}" "${BASE_URL}/api/documentos/CTR_2026-012" -H "X-Cargo: financeiro")
+
+if [ "${EMP_CONSTA}" = "false" ] && [ "${EMP_CIT_COUNT}" = "0" ] && \
+   [ "${FIN_CONSTA}" = "true" ] && [ "${FIN_TEM_CTR}" = "true" ] && [ "${FIN_TEM_912}" = "true" ] && \
+   [ "${STATUS_EMP_CTR}" = "403" ] && [ "${STATUS_FIN_CTR}" = "200" ]; then
+    pass "Caso 8: RBAC comprovado (empregado bloqueado 403 e sem CTR no retrieval; financeiro com R$ 912,50 e citação CTR_2026-012)"
+else
+    fail "Caso 8 RBAC divergente" "EMP_CONSTA=${EMP_CONSTA}, EMP_CIT=${EMP_CIT_COUNT}, FIN_CONSTA=${FIN_CONSTA}, FIN_TEM_CTR=${FIN_TEM_CTR}, STATUS_EMP=${STATUS_EMP_CTR}, STATUS_FIN=${STATUS_FIN_CTR}"
+fi
+
 echo "================================================================================"
 if [ "${FALHAS}" -eq 0 ]; then
-    echo "VEREDITO DO SMOKE TEST: TODOS OS 7 CASOS-CHAVE E CONTRATO DE CORS APROVADOS!"
+    echo "VEREDITO DO SMOKE TEST: TODOS OS 8 CASOS-CHAVE E CONTRATO DE CORS APROVADOS!"
     echo "================================================================================"
     exit 0
 else

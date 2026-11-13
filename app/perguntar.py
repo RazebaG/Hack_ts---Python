@@ -7,6 +7,7 @@ from app.acervo import AcervoRepository
 from app.models import Citacao, PerguntaRequest, PerguntaResponse
 from app.recuperacao import BuscadorLexico, ResultadoBusca
 from app.bedrock import gerar_resposta_converse, get_llm_provider
+from app.rbac import get_rbac
 
 logger = logging.getLogger(__name__)
 
@@ -118,12 +119,22 @@ class PerguntarService:
         self.acervo = acervo
         self.buscador = BuscadorLexico(acervo)
 
-    def responder(self, req: PerguntaRequest) -> PerguntaResponse:
+    def responder(self, req: PerguntaRequest, cargo: Optional[str] = None) -> PerguntaResponse:
         pergunta = req.pergunta.strip()
         perfil_key = PERFIL_MAP.get(req.perfil.lower().strip(), "geral") if req.perfil else "geral"
 
-        consta, resultados, avisos = self.buscador.buscar(pergunta)
+        rbac = get_rbac()
+        cargo_efetivo = cargo or rbac.resolver_cargo(
+            cargo=getattr(req, "cargo", None),
+            email=getattr(req, "email", None),
+            perfil=req.perfil,
+        )
+
+        consta, resultados, avisos = self.buscador.buscar(pergunta, cargo=cargo_efetivo)
         resposta_id = f"resp_{uuid.uuid4().hex[:12]}"
+
+        # Trilha de auditoria local (RNF de segurança RBAC)
+        rbac.registrar_auditoria(cargo_efetivo, "/api/perguntar", pergunta, permitido=consta)
 
         # Abstenção (consta = false, citacoes = [])
         if not consta or not resultados:

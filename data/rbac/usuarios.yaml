@@ -1,0 +1,40 @@
+# Fixture de usuários sintéticos para autenticação e RBAC no MVP (sem SSO)
+# Regra: nunca usar e-mails reais de pessoas. Apenas contas sintéticas @acme.test.
+
+usuarios:
+  - email: "maria.emp@acme.test"
+    nome: "Maria Santos"
+    cargo: "empregado"
+    descricao: "Colaboradora ACME (sem alçada financeira ou contratual)"
+
+  - email: "carlos.gestor@acme.test"
+    nome: "Carlos Gestor"
+    cargo: "gestor"
+    descricao: "Gestor de Equipe"
+
+  - email: "ana.rh@acme.test"
+    nome: "Ana RH"
+    cargo: "rh"
+    descricao: "Especialista em Gente e Cultura"
+
+  - email: "bruno.fin@acme.test"
+    nome: "Bruno Financeiro"
+    cargo: "financeiro"
+    descricao: "Analista de Controladoria e Finanças"
+
+  - email: "paula.jur@acme.test"
+    nome: "Paula Jurídico"
+    cargo: "juridico"
+    descricao: "Assessora Jurídica e de Conformidade"
+
+  - email: "diretoria@acme.test"
+    nome: "Diretoria ACME"
+    cargo: "diretoria"
+    descricao: "Membro da Diretoria Executiva"
+
+aliases:
+  "empregado@acme.test": "empregado"
+  "gestor@acme.test": "gestor"
+  "rh@acme.test": "rh"
+  "financeiro@acme.test": "financeiro"
+  "juridico@acme.test": "juridico"

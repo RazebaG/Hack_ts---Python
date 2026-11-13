@@ -1,0 +1,141 @@
+# Matriz de Controle de Acesso Baseado em Cargo (RBAC) - HACKA/TS 2026
+# Fonte: docs/propostas/RBAC-MVP.md / Issue #22
+# O cargo restringe quais documentos, assuntos e perspectivas podem ser recuperados e exibidos.
+
+cargos:
+  empregado:
+    descricao: "Colaborador ACME - sem alçada contratual ou orçamentária"
+    assuntos_permitidos:
+      - "ferias"
+      - "inovacao"
+      - "geral"
+    tipos_permitidos:
+      - "NG"
+      - "PX"
+      - "FM"
+      - "TB"
+      - "FL"
+      - "RG"
+    documentos_proibidos:
+      - "CTR_2026-012"
+      - "NT_2026-018"
+      - "NT_2026-021"
+    perspectivas_permitidas:
+      - "pessoas"
+    ver_radar: false
+    ver_substituidos: false
+    ver_grafo: true
+    ver_relatorio: false
+
+  gestor:
+    descricao: "Gestor de Equipe - alçada sobre pessoas e gestão de equipe"
+    assuntos_permitidos:
+      - "ferias"
+      - "inovacao"
+      - "geral"
+    tipos_permitidos:
+      - "NG"
+      - "PX"
+      - "FM"
+      - "TB"
+      - "FL"
+      - "RG"
+      - "PP"
+      - "GU"
+    documentos_proibidos:
+      - "CTR_2026-012"
+      - "NT_2026-018"
+    perspectivas_permitidas:
+      - "pessoas"
+      - "gestao"
+    ver_radar: false
+    ver_substituidos: false
+    ver_grafo: true
+    ver_relatorio: true
+
+  rh:
+    descricao: "Recursos Humanos / Gente e Cultura - alçada completa de férias e histórico"
+    assuntos_permitidos:
+      - "ferias"
+      - "inovacao"
+      - "geral"
+    tipos_permitidos:
+      - "NG"
+      - "PX"
+      - "FM"
+      - "TB"
+      - "FL"
+      - "RG"
+      - "PP"
+      - "GU"
+    documentos_proibidos:
+      - "CTR_2026-012"
+      - "NT_2026-018"
+    perspectivas_permitidas:
+      - "pessoas"
+      - "gestao"
+    ver_radar: true
+    ver_substituidos: true
+    ver_grafo: true
+    ver_relatorio: true
+
+  financeiro:
+    descricao: "Controladoria e Finanças - contratos, alçadas, orçamentos e multas"
+    assuntos_permitidos:
+      - "locacao"
+      - "inovacao"
+      - "ferias"
+      - "geral"
+    tipos_permitidos:
+      - "CTR"
+      - "NT"
+      - "NG"
+      - "PX"
+      - "TB"
+      - "RG"
+    documentos_proibidos: []
+    perspectivas_permitidas:
+      - "financeiro"
+      - "gestao"
+      - "pessoas"
+    ver_radar: true
+    ver_substituidos: false
+    ver_grafo: true
+    ver_relatorio: true
+
+  juridico:
+    descricao: "Assessoria Jurídica e Conformidade - contratos, normas e precedência"
+    assuntos_permitidos:
+      - "locacao"
+      - "ferias"
+      - "inovacao"
+      - "geral"
+    tipos_permitidos:
+      - "*"
+    documentos_proibidos: []
+    perspectivas_permitidas:
+      - "juridico"
+      - "financeiro"
+      - "gestao"
+      - "pessoas"
+    ver_radar: true
+    ver_substituidos: true
+    ver_grafo: true
+    ver_relatorio: true
+
+  diretoria:
+    descricao: "Diretoria Executiva - acesso irrestrito ao acervo, relatórios e radar"
+    assuntos_permitidos:
+      - "*"
+    tipos_permitidos:
+      - "*"
+    documentos_proibidos: []
+    perspectivas_permitidas:
+      - "juridico"
+      - "financeiro"
+      - "pessoas"
+      - "gestao"
+    ver_radar: true
+    ver_substituidos: true
+    ver_grafo: true
+    ver_relatorio: true

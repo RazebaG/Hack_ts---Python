@@ -1,5 +1,5 @@
-from typing import List, Optional
-from fastapi import FastAPI, HTTPException, Query
+from typing import Any, Dict, List, Optional
+from fastapi import FastAPI, HTTPException, Query, Header
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.models import (
@@ -22,6 +22,7 @@ from app.routers.simulador import router as simulador_router
 from app.routers.lotes import router as lotes_router, servico as lotes_servico
 from app.codigo import decodificar_codigo
 from app.bedrock import get_ia_status
+from app.rbac import get_rbac
 
 app = FastAPI(
     title="Assistente do Arquivo Central de Normas - API",
@@ -74,17 +75,40 @@ def listar_documentos(
     assunto: Optional[str] = Query(None, description="Filtrar por assunto (ex: ferias, inovacao, locacao)"),
     substituido: Optional[bool] = Query(None, description="Filtrar por vigência (True para versões anteriores)"),
     serie: Optional[int] = Query(None, description="Filtrar por série da norma (ex: 1 para Gente e Cultura)"),
+    cargo: Optional[str] = Query(None, description="Cargo do usuário para controle de acesso RBAC"),
+    email: Optional[str] = Query(None, description="E-mail de fixture para resolução do cargo no RBAC"),
+    x_cargo: Optional[str] = Header(None, alias="X-Cargo"),
+    x_user_email: Optional[str] = Header(None, alias="X-User-Email"),
 ):
-    """Lista todos os documentos do acervo (vigentes e substituídos)."""
-    return acervo.listar(assunto=assunto, substituido=substituido, serie=serie)
+    """Lista documentos do acervo filtrados por assunto, vigência e cargo RBAC (Issue #22)."""
+    rbac = get_rbac()
+    cargo_efetivo = rbac.resolver_cargo(cargo=cargo, x_cargo=x_cargo, x_user_email=x_user_email, email=email)
+    docs = acervo.listar(assunto=assunto, substituido=substituido, serie=serie)
+    if cargo_efetivo:
+        docs = [d for d in docs if rbac.documento_permitido(cargo_efetivo, d)]
+        rbac.registrar_auditoria(cargo_efetivo, "/api/documentos", f"total={len(docs)}", permitido=True)
+    return docs
 
 
 @app.get("/api/documentos/{codigo}", response_model=DocumentoDetalhe)
 def obter_documento(
     codigo: str,
     versao: Optional[str] = Query(None, description="Versão específica (se omitido, retorna a vigente)"),
+    cargo: Optional[str] = Query(None, description="Cargo do usuário para controle de acesso RBAC"),
+    email: Optional[str] = Query(None, description="E-mail de fixture para resolução do cargo no RBAC"),
+    x_cargo: Optional[str] = Header(None, alias="X-Cargo"),
+    x_user_email: Optional[str] = Header(None, alias="X-User-Email"),
 ):
-    """Retorna detalhes e seções de um documento. Sem versão -> retorna a versão vigente."""
+    """Retorna detalhes e seções de um documento com verificação de alçada RBAC (Issue #22)."""
+    rbac = get_rbac()
+    cargo_efetivo = rbac.resolver_cargo(cargo=cargo, x_cargo=x_cargo, x_user_email=x_user_email, email=email)
+    if cargo_efetivo and not rbac.documento_permitido(cargo_efetivo, codigo):
+        rbac.registrar_auditoria(cargo_efetivo, f"/api/documentos/{codigo}", codigo, permitido=False)
+        raise HTTPException(
+            status_code=403,
+            detail=f"Acesso negado: documento '{codigo}' não acessível para o cargo '{cargo_efetivo}'.",
+        )
+
     doc = acervo.buscar(codigo=codigo, versao=versao)
     if not doc:
         versao_info = f" na versão {versao}" if versao else ""
@@ -92,6 +116,16 @@ def obter_documento(
             status_code=404,
             detail=f"Documento '{codigo}'{versao_info} não encontrado no acervo.",
         )
+
+    if cargo_efetivo and not rbac.documento_permitido(cargo_efetivo, doc):
+        rbac.registrar_auditoria(cargo_efetivo, f"/api/documentos/{codigo}", codigo, permitido=False)
+        raise HTTPException(
+            status_code=403,
+            detail=f"Acesso negado: versão ou tipo do documento '{codigo}' não acessível para o cargo '{cargo_efetivo}'.",
+        )
+
+    if cargo_efetivo:
+        rbac.registrar_auditoria(cargo_efetivo, f"/api/documentos/{codigo}", codigo, permitido=True)
     return doc
 
 
@@ -109,9 +143,59 @@ def decodificar_documento(codigo: str):
 
 
 @app.post("/api/perguntar", response_model=PerguntaResponse)
-def post_perguntar(req: PerguntaRequest):
-    """Responde perguntas sobre o acervo com citação, versão vigente e abstenção (C13, C15, RF02)."""
-    return perguntar_service.responder(req)
+def post_perguntar(
+    req: PerguntaRequest,
+    cargo: Optional[str] = Query(None, description="Cargo do usuário para controle RBAC"),
+    email: Optional[str] = Query(None, description="E-mail de fixture para resolução do cargo no RBAC"),
+    x_cargo: Optional[str] = Header(None, alias="X-Cargo"),
+    x_user_email: Optional[str] = Header(None, alias="X-User-Email"),
+):
+    """Responde perguntas sobre o acervo com citação, versão vigente, abstenção e filtro RBAC (C13, C15, RF02, Issue #22)."""
+    rbac = get_rbac()
+    cargo_efetivo = rbac.resolver_cargo(
+        cargo=getattr(req, "cargo", None) or cargo,
+        x_cargo=x_cargo,
+        x_user_email=x_user_email,
+        email=getattr(req, "email", None) or email,
+        perfil=req.perfil,
+    )
+    return perguntar_service.responder(req, cargo=cargo_efetivo)
+
+
+@app.get("/api/rbac/usuarios")
+def listar_usuarios_rbac():
+    """Retorna os usuários de fixture configurados para demonstração do RBAC (Issue #22)."""
+    rbac = get_rbac()
+    return [
+        {
+            "email": u.email,
+            "nome": u.nome,
+            "cargo": u.cargo,
+            "descricao": u.descricao,
+        }
+        for u in rbac.usuarios_por_email.values()
+    ]
+
+
+@app.get("/api/rbac/matriz")
+def obter_matriz_rbac():
+    """Retorna a matriz de permissões RBAC por cargo (Issue #22)."""
+    rbac = get_rbac()
+    return {
+        cargo_id: {
+            "cargo": r.cargo,
+            "descricao": r.descricao,
+            "assuntos_permitidos": r.assuntos_permitidos,
+            "tipos_permitidos": r.tipos_permitidos,
+            "documentos_proibidos": r.documentos_proibidos,
+            "perspectivas_permitidas": r.perspectivas_permitidas,
+            "ver_radar": r.ver_radar,
+            "ver_substituidos": r.ver_substituidos,
+            "ver_grafo": r.ver_grafo,
+            "ver_relatorio": r.ver_relatorio,
+        }
+        for cargo_id, r in rbac.cargos.items()
+    }
 
 
 @app.post("/api/avaliacoes", response_model=AvaliacaoResponse, status_code=201)

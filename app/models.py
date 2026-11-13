@@ -82,11 +82,14 @@ class SaudeResponse(BaseModel):
     status: str = "ok"
     documentos: int
     ia: Optional[IASaude] = None
+    rbac: bool = Field(True, description="Indica se o controle de acesso RBAC está ativo")
 
 
 class PerguntaRequest(BaseModel):
     pergunta: str = Field(..., description="Pergunta em linguagem natural sobre o acervo")
     perfil: Optional[str] = Field(None, description="Perfil do usuário: empregado, gestor, diretoria, financeiro, juridico, rh")
+    cargo: Optional[str] = Field(None, description="Cargo do usuário para controle RBAC (ex: empregado, financeiro, diretoria)")
+    email: Optional[str] = Field(None, description="E-mail de fixture para resolução do cargo no RBAC")
 
 
 class PerguntaResponse(BaseModel):
