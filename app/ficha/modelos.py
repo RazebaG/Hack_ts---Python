@@ -199,3 +199,54 @@ class FichaDocumento(BaseModel):
     perguntas_sugeridas: List[str] = Field(default_factory=list, description="Perguntas sugeridas")
     cobertura: Cobertura = Field(..., description="Métricas de cobertura e verificação")
     delta: Optional[DeltaFicha] = Field(None, description="Delta em relação a versão anterior")
+
+
+# ==============================================================================
+# Modelos de Triagem e Lista de Atenção (C25, RF69, RF71, Issue #54)
+# ==============================================================================
+
+
+class SinaisTriagem(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    multa: bool = Field(..., description="Existe item de risco/valor com 'multa'")
+    divergencia: bool = Field(..., description="Existe alerta de versão substituída ou divergência")
+
+
+class ProximoPrazoTriagem(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    data: str = Field(..., description="Data limite no formato AAAA-MM-DD")
+    evento: str = Field(..., description="Descrição do evento/marco")
+    fonte: Optional[Fonte] = Field(None, description="Fonte comprobatória do prazo")
+
+
+class ItemTriagem(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    codigo: str = Field(..., description="Código do documento")
+    versao: str = Field(..., description="Versão do documento")
+    titulo: str = Field(..., description="Título do documento")
+    tipo: str = Field(..., description="Tipo do documento, ex: CTR, NG, PX")
+    tema: str = Field(..., description="Assunto/tema do documento")
+    semaforo: Semaforo = Field(..., description="Semáforo de atenção")
+    bluf_curto: Optional[str] = Field(None, description="Resumo BLUF em até 140 caracteres")
+    proximo_prazo: Optional[ProximoPrazoTriagem] = Field(None, description="Próximo prazo futuro")
+    alertas: int = Field(..., description="Quantidade total de alertas")
+    leitura_integral_min: int = Field(..., description="Tempo estimado de leitura integral em minutos")
+    leitura_ficha_min: int = Field(..., description="Tempo estimado de leitura da ficha em minutos")
+    ficha: Literal["pronta", "gerando", "sem_ficha"] = Field("pronta", description="Estado da ficha no acervo")
+    sinais: SinaisTriagem = Field(..., description="Sinais rápidos para filtragem")
+    motivo_curto: str = Field(..., description="Chip curto para tela inicial")
+    familia: FamiliaDocumento = Field(..., description="Família do documento conforme taxonomia")
+
+
+class TriagemResposta(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    total: int = Field(..., description="Total de itens que atendem aos filtros aplicados")
+    pagina: int = Field(..., description="Página atual da paginação")
+    tamanho: int = Field(..., description="Quantidade de itens por página")
+    pedem_acao: int = Field(..., description="Quantidade de itens com semáforo diferente de 'ok'")
+    itens: List[ItemTriagem] = Field(default_factory=list, description="Lista ordenada de documentos triados")
+

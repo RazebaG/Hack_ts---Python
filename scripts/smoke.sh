@@ -239,9 +239,27 @@ else
     fail "Caso 9 divergente" "CODIGO=${C9_CODIGO}, ESTADO=${C9_ESTADO}, MODO=${C9_MODO}, BLOCOS=${C9_BLOCOS}, SEMAFORO=${C9_SEMAFORO}, DESCARTADOS=${C9_DESCARTADOS}"
 fi
 
+# ------------------------------------------------------------------------------
+# Caso 10: /api/ficha/triagem?limite=5 (C25, F-18)
+# ------------------------------------------------------------------------------
+echo "[10/10] Caso 10: Triagem da Ficha (C25, limite=5, CTR_2026-012 em 1º)..."
+CASO10_RES=$(curl -s "${BASE_URL}/api/ficha/triagem?limite=5")
+
+C10_TOTAL=$(echo "${CASO10_RES}" | jq -r '.total // -1')
+C10_ITENS_LEN=$(echo "${CASO10_RES}" | jq -r '.itens | length')
+C10_PRIMEIRO_COD=$(echo "${CASO10_RES}" | jq -r '.itens[0].codigo // empty')
+C10_PRIMEIRO_MOTIVO=$(echo "${CASO10_RES}" | jq -r '.itens[0].motivo_curto // empty')
+C10_PRIMEIRO_PRAZO=$(echo "${CASO10_RES}" | jq -r '.itens[0].proximo_prazo.data // empty')
+
+if [ "${C10_TOTAL}" = "11" ] && [ "${C10_ITENS_LEN}" = "5" ] && [ "${C10_PRIMEIRO_COD}" = "CTR_2026-012" ] && echo "${C10_PRIMEIRO_MOTIVO}" | grep -q "vistoria" && [ "${C10_PRIMEIRO_PRAZO}" = "2026-11-25" ]; then
+    pass "Caso 10: triagem validada (total 11, limite 5, 1º item CTR_2026-012 com '${C10_PRIMEIRO_MOTIVO}')"
+else
+    fail "Caso 10 divergente" "TOTAL=${C10_TOTAL}, ITENS_LEN=${C10_ITENS_LEN}, CODIGO=${C10_PRIMEIRO_COD}, MOTIVO=${C10_PRIMEIRO_MOTIVO}, PRAZO=${C10_PRIMEIRO_PRAZO}"
+fi
+
 echo "================================================================================"
 if [ "${FALHAS}" -eq 0 ]; then
-    echo "VEREDITO DO SMOKE TEST: TODOS OS 9 CASOS-CHAVE E CONTRATO DE CORS APROVADOS!"
+    echo "VEREDITO DO SMOKE TEST: TODOS OS 10 CASOS-CHAVE E CONTRATO DE CORS APROVADOS!"
     echo "================================================================================"
     exit 0
 else

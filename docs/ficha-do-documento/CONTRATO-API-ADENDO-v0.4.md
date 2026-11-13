@@ -114,16 +114,60 @@ Cartões da apresentação, derivados da ficha (sem IA extra). Query: `versao`, 
                  "titulo": "...", "itens": [ItemFicha | Acao], "tempo_s": 15 } ] }
 ```
 
-## C25 · `GET /api/ficha/triagem` (P1)
+## C25 · `GET /api/ficha/triagem` (P0 — Issue #54)
 
-Fila de atenção. Query: `tema`, `tipo`, `situacao` (`ok|atencao|critico`), `sinal` (`prazo_30d|multa|divergencia`), `perfil`, `ordenar` (`urgencia|vigencia|tema|tipo`), `pagina` (1), `tamanho` (50, máx. 100).
+Fila de atenção e lista rápida para chips da tela inicial e Mesa de Decisão.
+Query: `limite` (1 a 20; se presente, limita `itens`), `perfil` (aceito e ignorado no MVP), `tema`, `tipo`, `situacao` (`ok|atencao|critico`), `sinal` (`prazo_30d|multa|divergencia`), `ordenar` (`urgencia` padrão, `vigencia`, `tema`, `tipo`), `pagina` (1) e `tamanho` (50, máx. 100), `data_referencia` (opcional).
+
+Autenticação: respeita `API_KEY` e cabeçalho `X-API-Key` (401 se ausente/inválida quando ativada).
+
+```json
+{
+  "total": 11,
+  "pagina": 1,
+  "tamanho": 5,
+  "pedem_acao": 6,
+  "itens": [
+    {
+      "codigo": "CTR_2026-012",
+      "versao": "1.0.0",
+      "titulo": "Contrato de Locação de Espaço para Coworking",
+      "tipo": "CTR",
+      "tema": "locacao",
+      "semaforo": { "nivel": "atencao", "motivos": ["Vistoria até 25/11/2026 (13 dias)", "NG_012 citada e ausente do acervo"] },
+      "bluf_curto": "Locação de 8 estações de trabalho e de uma sala de; vigência de 30/11/2026 a 29/04/2027; valor de R$ 18.250,00.",
+      "proximo_prazo": {
+        "data": "2026-11-25",
+        "evento": "Vistoria e entrega",
+        "fonte": { "codigo": "CTR_2026-012", "versao": "1.0.0", "secao": "5", "trecho": "...", "camada": { "sigla": "CTR", "tipo_nome": "Contrato", "grupo": "Instrumento", "subordinado_a": null } }
+      },
+      "alertas": 1,
+      "leitura_integral_min": 7,
+      "leitura_ficha_min": 3,
+      "ficha": "pronta",
+      "sinais": { "multa": true, "divergencia": false },
+      "motivo_curto": "vistoria em 13 dias",
+      "familia": "contrato"
+    }
+  ]
+}
 ```
-{ "total": 1000, "pagina": 1, "tamanho": 50, "pedem_acao": 38,
-  "itens": [ { "codigo", "versao", "titulo", "tipo", "tema", "semaforo": { "nivel", "motivos" },
-               "bluf_curto": "...", "proximo_prazo": { "data", "evento" } | null,
-               "alertas": 2, "leitura_integral_min": 12, "leitura_ficha_min": 3, "ficha": "pronta|gerando|sem_ficha" } ] }
-```
-**Regra:** nunca dispara geração; usa o cache e o relance extrativo. `ficha: "sem_ficha"` indica documento ainda não processado (o cliente oferece "Gerar ficha").
+
+**Regras:**
+1. Documentos vigentes apenas (`substituido = false`).
+2. Usa o cache em memória e o relance extrativo determinístico (sem IA e sem rede).
+3. **Ordem por urgência (padrão):**
+   - (a) documentos com próximo prazo em até 30 dias (do mais próximo ao mais distante);
+   - (b) documentos com regra mudou de versão (alerta de versão substituída ou divergência);
+   - (c) documentos com citação de norma fora do acervo (referência ausente);
+   - (d) os demais, ordenados por próximo prazo e depois por código.
+4. **`motivo_curto` (chip):**
+   - prazo em até 30 dias: `<marco resumido, até 3 palavras> em N dias` (ex.: "vistoria em 13 dias"; se não for possível resumir, "prazo em N dias");
+   - regra mudou de versão: `regra mudou de versão`;
+   - referência ausente: `cita norma fora do acervo`;
+   - senão: `em dia`.
+5. `sinais.multa`: item de valor/risco contendo termo 'multa'.
+6. `sinais.divergencia`: alerta de versão substituída ou divergência cadastrado.
 
 ## C26 · Delta de versão (P1)
 

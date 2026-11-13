@@ -7,13 +7,14 @@ por hash do conteúdo, validação de perfil e linguagem, e suporte a ETag / 304
 
 import hashlib
 import threading
-from typing import Dict, Optional, Tuple
+from typing import Dict, Literal, Optional, Tuple
 
 from fastapi import APIRouter, HTTPException, Query, Request, Response
 
-from app.acervo import get_acervo
-from app.ficha.modelos import FichaDocumento
+from app.acervo import AcervoRepository, get_acervo
+from app.ficha.modelos import FichaDocumento, TriagemResposta
 from app.ficha.montagem import montar_ficha
+from app.ficha.triagem import executar_triagem
 from app.models import DocumentoDetalhe
 
 router = APIRouter(prefix="/api", tags=["ficha"])
@@ -55,6 +56,76 @@ def limpar_cache_fichas() -> None:
     """Limpa o cache em memória (utilizado em testes)."""
     with _lock_cache:
         _cache_fichas.clear()
+
+
+def obter_ficha_cache_ou_montar(
+    doc: DocumentoDetalhe,
+    acervo: AcervoRepository,
+    perfil: Optional[str] = None,
+    linguagem: str = "original",
+) -> FichaDocumento:
+    """Recupera a ficha em memória pelo hash de conteúdo ou monta deterministicamente."""
+    conteudo_hash = calcular_hash_conteudo(doc)
+    ling = linguagem or "original"
+    cache_key = (doc.codigo, doc.versao, conteudo_hash, perfil, ling)
+
+    with _lock_cache:
+        ficha = _cache_fichas.get(cache_key)
+
+    if ficha is None:
+        ficha = montar_ficha(
+            doc=doc,
+            acervo=acervo,
+            perfil=perfil,
+            linguagem=ling,
+        )
+        with _lock_cache:
+            _cache_fichas[cache_key] = ficha
+
+    return ficha
+
+
+@router.get("/ficha/triagem", response_model=TriagemResposta)
+def obter_triagem(
+    limite: Optional[int] = Query(None, ge=1, le=20, description="Limita o número de itens retornados (1 a 20)"),
+    perfil: Optional[str] = Query(None, description="Perfil do usuário (aceito e ignorado no MVP)"),
+    tema: Optional[str] = Query(None, description="Filtrar por tema/assunto (ex: ferias, locacao)"),
+    tipo: Optional[str] = Query(None, description="Filtrar por tipo documental (ex: CTR, NG, PX)"),
+    situacao: Optional[Literal["ok", "atencao", "critico"]] = Query(None, description="Filtrar por situação do semáforo"),
+    sinal: Optional[Literal["prazo_30d", "multa", "divergencia"]] = Query(None, description="Filtrar por sinal"),
+    ordenar: Literal["urgencia", "vigencia", "tema", "tipo"] = Query("urgencia", description="Critério de ordenação"),
+    pagina: int = Query(1, ge=1, description="Número da página (padrão 1)"),
+    tamanho: int = Query(50, ge=1, le=100, description="Quantidade de itens por página (padrão 50, máx. 100)"),
+    data_referencia: Optional[str] = Query(None, description="Data de referência para cálculo de prazos (AAAA-MM-DD)"),
+):
+    """Fila e lista de atenção para triagem (C25, RF69, RF71, Issue #54).
+
+    - Retorna a lista de atenção de documentos vigentes ordenada por urgência (padrão)
+    - Suporta filtros por tema, tipo, situação (ok/atencao/critico) e sinal (prazo_30d/multa/divergencia)
+    - Paginação e suporte a ?limite= (1 a 20) para uso na tela inicial (Mesa e chips)
+    - Determinístico, sem IA e sem rede, com reaproveitamento de cache em memória
+    """
+    if perfil is not None and perfil not in PERFIS_VALIDOS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Perfil '{perfil}' inválido. Valores permitidos: {', '.join(sorted(PERFIS_VALIDOS))}.",
+        )
+
+    acervo = get_acervo()
+    return executar_triagem(
+        acervo=acervo,
+        obter_ficha_fn=obter_ficha_cache_ou_montar,
+        limite=limite,
+        perfil=perfil,
+        tema=tema,
+        tipo=tipo,
+        situacao=situacao,
+        sinal=sinal,
+        ordenar=ordenar,
+        pagina=pagina,
+        tamanho=tamanho,
+        data_referencia=data_referencia,
+    )
 
 
 @router.get("/documentos/{codigo}/ficha", response_model=FichaDocumento)
@@ -101,20 +172,9 @@ def obter_ficha(
     if request.headers.get("if-none-match") == etag:
         return Response(status_code=304, headers={"ETag": etag})
 
-    ling = linguagem or "original"
-    cache_key = (doc.codigo, doc.versao, conteudo_hash, perfil, ling)
-
-    with _lock_cache:
-        ficha = _cache_fichas.get(cache_key)
-
-    if ficha is None:
-        ficha = montar_ficha(
-            doc=doc,
-            acervo=acervo,
-            perfil=perfil,
-            linguagem=ling,
-        )
-        with _lock_cache:
-            _cache_fichas[cache_key] = ficha
-
-    return ficha
+    return obter_ficha_cache_ou_montar(
+        doc=doc,
+        acervo=acervo,
+        perfil=perfil,
+        linguagem=linguagem or "original",
+    )
