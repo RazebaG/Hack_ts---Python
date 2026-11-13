@@ -48,3 +48,9 @@ eval/
 
 # Documentação pesada não necessária em runtime
 docs/
+
+# Dados gerados em runtime (já ignorados no .gitignore): uploads de lotes,
+# avaliações e cache. Não podem ir para a imagem publicada no ECR.
+data/uploads/
+data/avaliacoes.jsonl
+data/cache/

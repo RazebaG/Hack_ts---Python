@@ -27,6 +27,15 @@ curl -s http://localhost:8000/api/saude | jq .
 docker compose down
 ```
 
+> [!NOTE]
+> **Bedrock no container local:** o compose repassa `AWS_PROFILE` (padrão `hackats`), mas o container não enxerga o `~/.aws` da máquina. Com `LLM_PROVIDER=nenhum` (padrão) nada muda. Para usar `LLM_PROVIDER=bedrock` localmente, monte o perfil só para leitura, por exemplo num `docker-compose.override.yml` (não commitado):
+> ```yaml
+> services:
+>   backend:
+>     volumes:
+>       - ~/.aws:/home/appuser/.aws:ro
+> ```
+
 ### 1.2 Usando Docker CLI e Makefile
 ```bash
 # Construir a imagem localmente
@@ -52,6 +61,11 @@ A sintaxe do comando foi verificada e validada localmente via `aws ecs create-ex
 > No MVP atual (ondas 0 e 1), o estado de lotes e documentos dinâmicos enviados via upload/digitalização (`/api/lotes`) é mantido em memória no runtime (`AcervoRepository`).  
 > **Recomendação arquitetural:** O serviço DEVE ser configurado com exatamente **1 tarefa** (`minTaskCount: 1, maxTaskCount: 1`), assegurando que todas as requisições acessem o mesmo estado consistente sem necessidade de banco de dados distribuído nesta fase. A persistência externa em PostgreSQL faz parte do plano de evolução de 6 meses (Mês 1).
 
+> [!WARNING]
+> **Avaliações também são efêmeras:** `/api/avaliacoes` grava em `data/avaliacoes.jsonl` dentro do container. Em Fargate esse arquivo some a cada novo deploy ou troca de tarefa.
+>
+> **CORS:** nesta versão as origens permitidas são fixas (`localhost`/`127.0.0.1`, portas 5173 e 3000). Um frontend publicado em outro domínio só consegue chamar a API depois da configuração de origens por ambiente (`CORS_ORIGINS`, PR #41).
+
 ### 2.2 Pré-requisitos na AWS
 1. **Repositório no Amazon ECR:**
    ```bash
@@ -68,7 +82,7 @@ A sintaxe do comando foi verificada e validada localmente via `aws ecs create-ex
    - **Task Role (`--task-role-arn`):** Concede à aplicação as permissões de acesso ao Amazon Bedrock (`bedrock:InvokeModel`, `bedrock:InvokeModelWithResponseStream`).
 
 ### 2.3 Comando de Criação do Serviço ECS Express Gateway
-Execute o comando abaixo substituindo os identificadores `<ACCOUNT_ID>` e `<REGION>`:
+Execute o comando abaixo substituindo os identificadores `<ACCOUNT_ID>` e `<REGION>`. O cluster `acme-cluster` precisa existir; sem `--cluster`, o ECS usa o cluster `default`.
 
 ```bash
 aws ecs create-express-gateway-service \

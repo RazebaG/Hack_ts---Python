@@ -27,4 +27,4 @@ docker-build:
 	docker build -t acme-normas-backend:latest .
 
 docker-run:
-	docker run -p 8000:8000 --env-file .env acme-normas-backend:latest
+	docker run -p 8000:8000 $(if $(wildcard .env),--env-file .env,) acme-normas-backend:latest
