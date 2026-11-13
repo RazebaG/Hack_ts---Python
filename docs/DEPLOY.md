@@ -138,9 +138,15 @@ Após a conclusão da inicialização do serviço:
 # 1. Testar endpoint de saúde público retornado pelo ALB / Express Gateway
 curl -s https://<ENDPOINT_SERVICO>/api/saude | jq .
 
-# 2. Executar smoke test apontando para o ambiente publicado
-API_URL=https://<ENDPOINT_SERVICO> bash scripts/smoke.sh
+# 2. Conferir o acervo e uma pergunta com citação no ambiente publicado
+curl -s https://<ENDPOINT_SERVICO>/api/documentos | jq length          # esperado: 13
+curl -s -X POST https://<ENDPOINT_SERVICO>/api/perguntar \
+  -H 'Content-Type: application/json' \
+  -d '{"pergunta":"Qual a antecedência mínima para pedir férias?"}' | jq '.consta, .citacoes[0].codigo'
 ```
+
+> [!NOTE]
+> O `scripts/smoke.sh` testa só a API local (`http://${API_HOST}:${API_PORT}`, padrão `127.0.0.1:8000`) e sobe uma se não houver nenhuma. `API_URL` não muda o alvo do smoke; rodá-lo depois do deploy testaria a máquina local, não o ECS. Rode o smoke antes de publicar a imagem (ou contra o container local: `docker compose up -d && make smoke`).
 
 ---
 
