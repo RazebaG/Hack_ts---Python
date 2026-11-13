@@ -699,35 +699,87 @@ def montar_ficha(
     # 9. Mapa de calor determinístico
     mapa_calor = _calcular_mapa_calor_deterministico(doc)
 
-    # 10. Atualização do Semáforo determinístico
-    motivos_semaforo: List[str] = []
-    nivel_semaforo = "ok"
+    # 10. Atualização do Semáforo determinístico (RF46, C22, Issue #48)
+    motivos_critico: List[str] = []
+    motivos_atencao: List[str] = []
 
+    # 1. Documento substituído -> crítico
     if doc.substituido:
-        nivel_semaforo = "critico"
-        motivos_semaforo.append(f"Documento em versão anterior/substituída ({doc.versao})")
+        motivos_critico.append(f"Documento em versão anterior substituída ({doc.versao})")
 
-    for a in alertas:
-        motivos_semaforo.append(a.titulo)
-        if a.tipo == "versao_substituida":
-            nivel_semaforo = "critico"
-        elif a.tipo == "referencia_ausente" and nivel_semaforo != "critico":
-            nivel_semaforo = "atencao"
+    # 2. Vigência do documento
+    if identidade.vigencia and identidade.vigencia.dias_restantes is not None:
+        dias_vig = identidade.vigencia.dias_restantes
+        if dias_vig < 0:
+            motivos_critico.append(f"Vigência encerrada há {abs(dias_vig)} dias")
+        elif 0 <= dias_vig <= 7:
+            motivos_critico.append(f"Vigência encerra em {dias_vig} dias")
+        elif 7 < dias_vig <= 60:
+            motivos_atencao.append(f"Vigência encerra em {dias_vig} dias")
 
+    # 3. Prazos extraídos (ignora histórico de versões e exemplos)
+    prazos_urgentes: List[Tuple[int, str]] = []
+    prazos_atencao: List[Tuple[int, str]] = []
     for p in pontos.prazos:
+        sec = next((s for s in doc.secoes if p.fontes and s.id == p.fontes[0].secao), None)
+        sec_tit = (sec.titulo or "").lower() if sec else ""
+        if any(w in sec_tit for w in ("histórico", "historico", "versão", "versao", "exemplo")):
+            continue
         dt = parse_data(p.valor)
         if dt:
             dias = (dt - data_ref).days
-            if 0 <= dias <= 7:
-                nivel_semaforo = "critico"
-                motivos_semaforo.insert(0, f"Prazo crítico: {p.titulo} em {dias} dias")
-                break
-            elif 7 < dias <= 30 and nivel_semaforo == "ok":
-                nivel_semaforo = "atencao"
-                motivos_semaforo.insert(0, f"{p.titulo} até {dt.strftime('%d/%m/%Y')} ({dias} dias)")
-                break
+            if dias < 0:
+                prazos_urgentes.append((dias, f"Prazo vencido: {p.titulo} há {abs(dias)} dias"))
+            elif 0 <= dias <= 7:
+                prazos_urgentes.append((dias, f"Prazo crítico: {p.titulo} em {dias} dias"))
+            elif 7 < dias <= 30:
+                if "vistoria" in p.titulo.lower():
+                    m_prz = f"Vistoria até {dt.strftime('%d/%m/%Y')} ({dias} dias)"
+                else:
+                    m_prz = f"{p.titulo} até {dt.strftime('%d/%m/%Y')} ({dias} dias)"
+                prazos_atencao.append((dias, m_prz))
 
-    if not motivos_semaforo:
+    if prazos_urgentes:
+        prazos_urgentes.sort(key=lambda x: x[0])
+        for _, m_crit in prazos_urgentes[:2]:
+            if m_crit not in motivos_critico:
+                motivos_critico.append(m_crit)
+    elif prazos_atencao:
+        prazos_atencao.sort(key=lambda x: x[0])
+        top_atencao = prazos_atencao[0][1]
+        if top_atencao not in motivos_atencao:
+            motivos_atencao.append(top_atencao)
+
+    # 4. Referência ausente e alertas do Radar
+    for a in alertas:
+        if a.tipo == "referencia_ausente":
+            cod_ausente = a.titulo.split()[0]
+            motivo_ref = f"{cod_ausente} citada e ausente do acervo"
+            if motivo_ref not in motivos_atencao:
+                motivos_atencao.append(motivo_ref)
+        elif a.tipo == "versao_substituida":
+            if doc.substituido:
+                if a.titulo not in motivos_critico:
+                    motivos_critico.append(a.titulo)
+        else:
+            if a.titulo not in motivos_atencao:
+                motivos_atencao.append(a.titulo)
+
+    # 5. Item descartado > 0 -> atenção
+    if cobertura.itens_descartados > 0:
+        motivos_atencao.append(
+            f"{cobertura.itens_descartados} itens descartados por inconsistência de fonte"
+        )
+
+    # Consolidação do Semáforo
+    if motivos_critico:
+        nivel_semaforo = "critico"
+        motivos_semaforo = motivos_critico + motivos_atencao
+    elif motivos_atencao:
+        nivel_semaforo = "atencao"
+        motivos_semaforo = motivos_atencao
+    else:
+        nivel_semaforo = "ok"
         motivos_semaforo = semaforo_base.motivos or ["Documento em conformidade e sem pendências críticas"]
 
     semaforo_final = Semaforo(

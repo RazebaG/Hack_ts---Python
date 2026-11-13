@@ -6,6 +6,7 @@ from app.models import (
     DocumentoResumo,
     DocumentoDetalhe,
     SaudeResponse,
+    FichasSaude,
     PerguntaRequest,
     PerguntaResponse,
     AvaliacaoRequest,
@@ -20,13 +21,14 @@ from app.routers.inteligencia import router as inteligencia_router
 from app.routers.radar import router as radar_router
 from app.routers.simulador import router as simulador_router
 from app.routers.lotes import router as lotes_router, servico as lotes_servico
-from app.routers.ficha import router as ficha_router
+from app.routers.ficha import router as ficha_router, obter_total_fichas_prontas
 from app.codigo import decodificar_codigo
 from app.bedrock import get_ia_status
 from app.seguranca import (
     obter_cors_origins,
     verificar_api_key,
     verificar_rate_limit,
+    obter_status_autenticacao,
 )
 
 app = FastAPI(
@@ -82,11 +84,17 @@ lotes_servico.registrar_ao_publicar(perguntar_service.buscador.reindexar)
 
 @app.get("/api/saude", response_model=SaudeResponse)
 def get_saude():
-    """Retorna o status da API, total de documentos e status do provedor de IA."""
+    """Retorna o status da API, total de documentos, status do provedor de IA e fichas."""
+    total_docs = acervo.total()
     return SaudeResponse(
         status="ok",
-        documentos=acervo.total(),
+        documentos=total_docs,
         ia=get_ia_status(),
+        fichas=FichasSaude(
+            prontas=obter_total_fichas_prontas(),
+            total=total_docs,
+        ),
+        autenticacao=obter_status_autenticacao(),
     )
 
 
