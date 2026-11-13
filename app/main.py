@@ -1,5 +1,5 @@
 from typing import List, Optional
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.models import (
@@ -23,6 +23,11 @@ from app.routers.lotes import router as lotes_router, servico as lotes_servico
 from app.routers.ficha import router as ficha_router
 from app.codigo import decodificar_codigo
 from app.bedrock import get_ia_status
+from app.seguranca import (
+    obter_cors_origins,
+    verificar_api_key,
+    verificar_rate_limit,
+)
 
 app = FastAPI(
     title="Assistente do Arquivo Central de Normas - API",
@@ -30,15 +35,29 @@ app = FastAPI(
     version="0.1.0",
 )
 
-# Configuração de CORS para o frontend React
+
+@app.middleware("http")
+async def seguranca_middleware(request: Request, call_next):
+    """Middleware de segurança mínima: rate limit e autenticação via X-API-Key."""
+    # 1. Limite de requisições por minuto (429 com Retry-After)
+    resp_rate = verificar_rate_limit(request)
+    if resp_rate is not None:
+        return resp_rate
+
+    # 2. Autenticação por API_KEY (401 se ausente ou inválida; /api/saude e OPTIONS abertos)
+    resp_auth = verificar_api_key(request)
+    if resp_auth is not None:
+        return resp_auth
+
+    return await call_next(request)
+
+
+# Configuração de CORS para o frontend React (dinâmico via CORS_ORIGINS ou padrão seguro).
+# Registrado DEPOIS do middleware de segurança para ficar por fora dele: assim as
+# respostas 401/429 também levam os cabeçalhos CORS e o navegador consegue lê-las.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ],
+    allow_origins=obter_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -119,6 +138,11 @@ def post_perguntar(req: PerguntaRequest):
 @app.post("/api/avaliacoes", response_model=AvaliacaoResponse, status_code=201)
 def registrar_avaliacao(req: AvaliacaoRequest):
     """Registra uma avaliação de resposta (C14, RF39, RNF16)."""
+    if not req.resposta_id or not req.resposta_id.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="resposta_id é obrigatório e não pode ser vazio.",
+        )
     return avaliacoes_repo.registrar(req)
 
 

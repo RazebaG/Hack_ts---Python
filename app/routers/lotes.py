@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 from app.acervo import get_acervo
 from app.ingestao import MAX_BYTES_ARQUIVO, LoteInvalido, LotesService
+from app.seguranca import sanitizar_nome_arquivo
 
 router = APIRouter(prefix="/api/lotes", tags=["lotes"])
 
@@ -53,7 +54,9 @@ def criar_lote(arquivos: List[UploadFile] = File(..., description="Arquivos .md,
     Rota síncrona (def): o FastAPI a executa no threadpool, então a leitura de PDF
     e a chamada ao Bedrock não bloqueiam o event loop.
     """
-    conteudos = [(a.filename or "", _ler_limitado(a)) for a in arquivos]
+    if not arquivos:
+        raise HTTPException(status_code=400, detail="Envie ao menos um arquivo.")
+    conteudos = [(sanitizar_nome_arquivo(a.filename), _ler_limitado(a)) for a in arquivos]
     try:
         lote = servico.criar_lote(conteudos)
     except LoteInvalido as exc:

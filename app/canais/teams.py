@@ -35,7 +35,7 @@ from app.canais.cartao import (
     montar_cartao,
     montar_cartoes_radar,
 )
-from app.canais.cliente_api import ErroAPI
+from app.canais.cliente_api import ErroAPI, cabecalhos_api
 
 logger = logging.getLogger(__name__)
 
@@ -147,7 +147,9 @@ class ClienteAcervo:
         self._timeout = timeout
 
     def _cliente(self) -> httpx.AsyncClient:
-        return httpx.AsyncClient(base_url=self._api_url, transport=self._transport, timeout=self._timeout)
+        return httpx.AsyncClient(
+            base_url=self._api_url, transport=self._transport, timeout=self._timeout, headers=cabecalhos_api()
+        )
 
     async def _requisitar(self, metodo: str, caminho: str, **kwargs: Any) -> Any:
         try:

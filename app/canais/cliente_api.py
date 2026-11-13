@@ -11,6 +11,12 @@ import httpx
 API_URL_PADRAO = "http://localhost:8000"
 
 
+def cabecalhos_api() -> Dict[str, str]:
+    """Cabeçalho `X-API-Key` quando a API está protegida por `API_KEY` (PR #41)."""
+    chave = os.getenv("API_KEY", "").strip()
+    return {"X-API-Key": chave} if chave else {}
+
+
 class ErroAPI(Exception):
     """A API não respondeu ou respondeu com erro."""
 
@@ -33,6 +39,7 @@ class ClienteAPI:
 
     def _requisitar(self, metodo: str, caminho: str, **kwargs: Any) -> Dict[str, Any]:
         try:
+            kwargs["headers"] = {**cabecalhos_api(), **(kwargs.get("headers") or {})}
             r = self._http.request(metodo, caminho, **kwargs)
         except httpx.HTTPError as e:
             raise ErroAPI(f"API indisponível em {self.base_url}: {e.__class__.__name__}") from e
