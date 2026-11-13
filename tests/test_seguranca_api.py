@@ -139,9 +139,10 @@ def test_rate_limit_options_nao_consome_cota(monkeypatch):
 
 def test_sanitizar_nome_arquivo():
     """Valida a sanitização e detecção de Directory Traversal."""
-    # Nomes válidos são normalizados
+    # Nomes válidos voltam como a pessoa enviou (o nome em disco é saneado em LotesService._salvar)
     assert sanitizar_nome_arquivo("relatorio_2026.md") == "relatorio_2026.md"
-    assert sanitizar_nome_arquivo("documento com espaços.pdf") == "documento_com_espa_os.pdf"
+    assert sanitizar_nome_arquivo("documento com espaços.pdf") == "documento com espaços.pdf"
+    assert sanitizar_nome_arquivo("Política de Férias v1..2.md") == "Política de Férias v1..2.md"
 
     # Tentativa de Directory Traversal resulta em HTTP 400
     with pytest.raises(Exception) as exc1:
@@ -326,3 +327,71 @@ def test_cors_origins_configuravel(monkeypatch):
     monkeypatch.setenv("CORS_ORIGINS", "https://app.acme.test, https://portal.acme.test")
     custom = obter_cors_origins()
     assert custom == ["https://app.acme.test", "https://portal.acme.test"]
+
+
+# ==============================================================================
+# 7. Correções da revisão de QA (CORS em 401/429, X-Forwarded-For, nomes, canais)
+# ==============================================================================
+
+ORIGEM_FRONT = {"Origin": "http://localhost:5173"}
+
+
+def test_401_leva_cabecalho_cors_para_o_navegador_ler(monkeypatch):
+    """Sem CORS no 401, o navegador mostra erro de CORS em vez de 'chave inválida'."""
+    monkeypatch.setenv("API_KEY", "chave-secreta-hacka")
+    resp = client.get("/api/documentos", headers=ORIGEM_FRONT)
+    assert resp.status_code == 401
+    assert resp.headers.get("access-control-allow-origin") == "http://localhost:5173"
+
+
+def test_429_leva_cabecalho_cors_para_o_navegador_ler(monkeypatch):
+    monkeypatch.setenv("RATE_LIMIT_POR_MINUTO", "1")
+    limpar_rate_limit()
+    client.get("/api/saude", headers=ORIGEM_FRONT)
+    resp = client.get("/api/saude", headers=ORIGEM_FRONT)
+    limpar_rate_limit()
+    assert resp.status_code == 429
+    assert resp.headers.get("access-control-allow-origin") == "http://localhost:5173"
+
+
+def test_rate_limit_nao_e_burlado_trocando_x_forwarded_for(monkeypatch):
+    """O cliente controla o X-Forwarded-For; trocar o valor não pode zerar a cota."""
+    monkeypatch.setenv("RATE_LIMIT_POR_MINUTO", "2")
+    limpar_rate_limit()
+    codigos = [
+        client.get("/api/saude", headers={"X-Forwarded-For": f"10.0.0.{i}"}).status_code
+        for i in range(4)
+    ]
+    limpar_rate_limit()
+    assert codigos == [200, 200, 429, 429]
+
+
+def test_upload_mantem_nome_original_e_aceita_pontos_no_meio():
+    """Nome com acento, espaço e '..' no meio não é caminho: o lote aceita e mostra o nome como veio."""
+    resp = client.post(
+        "/api/lotes",
+        files=[
+            ("arquivos", ("Política de Férias.md", b"# Titulo", "text/markdown")),
+            ("arquivos", ("ata v1..2.md", b"# Titulo", "text/markdown")),
+        ],
+    )
+    assert resp.status_code == 201
+    assert [a["nome"] for a in resp.json()["arquivos"]] == ["Política de Férias.md", "ata v1..2.md"]
+
+
+def test_canal_slack_envia_api_key_quando_configurada(monkeypatch):
+    from app.canais.cliente_api import ClienteAPI
+
+    monkeypatch.setenv("API_KEY", "chave-secreta-hacka")
+    api = ClienteAPI(base_url="http://teste", http=TestClient(app))
+    assert isinstance(api.radar(), dict)  # sem o cabeçalho seria 401 (ErroAPI)
+
+
+def test_canal_teams_envia_api_key_quando_configurada(monkeypatch):
+    import asyncio
+    import httpx
+    from app.canais.teams import ClienteAcervo
+
+    monkeypatch.setenv("API_KEY", "chave-secreta-hacka")
+    cliente = ClienteAcervo("http://teste", transport=httpx.ASGITransport(app=app))
+    assert isinstance(asyncio.run(cliente.radar()), list)  # sem o cabeçalho seria 401 (ErroAPI)

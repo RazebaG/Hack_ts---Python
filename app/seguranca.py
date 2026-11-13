@@ -24,12 +24,10 @@ Funcionalidades de segurança mínima:
 """
 
 import os
-import re
 import secrets
 import threading
 import time
 from collections import defaultdict
-from pathlib import Path
 from typing import Dict, List, Optional
 
 from fastapi import HTTPException, Request
@@ -97,13 +95,17 @@ _rate_limit_lock = threading.Lock()
 
 
 def obter_ip_cliente(request: Request) -> str:
-    """Extrai o IP do cliente respeitando X-Forwarded-For quando presente."""
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
+    """IP do cliente para o rate limit.
+
+    Usa só `request.client.host`. O `X-Forwarded-For` não é lido aqui porque o
+    cliente controla o primeiro valor do cabeçalho e poderia trocar de "IP" a
+    cada requisição para escapar do limite. Atrás de um proxy confiável (ALB do
+    ECS), o uvicorn já reescreve `request.client` a partir do cabeçalho quando
+    `FORWARDED_ALLOW_IPS` lista a rede do proxy (ver docs/DEPLOY.md).
+    """
     if request.client and request.client.host:
         return request.client.host
-    return "127.0.0.1"
+    return "desconhecido"
 
 
 def verificar_rate_limit(request: Request) -> Optional[JSONResponse]:
@@ -160,16 +162,16 @@ def limpar_rate_limit() -> None:
 # Validação e Sanitização de Nomes de Upload
 # ---------------------------------------------------------------------------
 def sanitizar_nome_arquivo(nome: Optional[str]) -> str:
-    """Valida e sanitiza o nome do arquivo para prevenir path traversal e nomes maliciosos."""
+    """Rejeita nomes vazios ou com componentes de caminho (path traversal).
+
+    Devolve o nome original (com acentos e espaços), que é o que a pessoa vê no
+    lote. O nome usado em disco continua saneado em `LotesService._salvar`.
+    """
     if not nome or not nome.strip():
         raise HTTPException(status_code=400, detail="Nome de arquivo inválido ou ausente.")
-    # Detecta tentativas de path traversal
-    if ".." in nome or "/" in nome or "\\" in nome:
+    if "/" in nome or "\\" in nome or "\x00" in nome or nome.strip() in (".", ".."):
         raise HTTPException(
             status_code=400,
             detail="Nome de arquivo inválido (caracteres de caminho não permitidos).",
         )
-    nome_limpo = re.sub(r"[^A-Za-z0-9._-]", "_", Path(nome).name)
-    if not nome_limpo or nome_limpo in (".", ".."):
-        raise HTTPException(status_code=400, detail="Nome de arquivo inválido.")
-    return nome_limpo
+    return nome

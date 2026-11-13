@@ -34,15 +34,6 @@ app = FastAPI(
     version="0.1.0",
 )
 
-# Configuração de CORS para o frontend React (dinâmico via CORS_ORIGINS ou padrão seguro)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=obter_cors_origins(),
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 
 @app.middleware("http")
 async def seguranca_middleware(request: Request, call_next):
@@ -58,6 +49,18 @@ async def seguranca_middleware(request: Request, call_next):
         return resp_auth
 
     return await call_next(request)
+
+
+# Configuração de CORS para o frontend React (dinâmico via CORS_ORIGINS ou padrão seguro).
+# Registrado DEPOIS do middleware de segurança para ficar por fora dele: assim as
+# respostas 401/429 também levam os cabeçalhos CORS e o navegador consegue lê-las.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=obter_cors_origins(),
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Roteadores (Issues #4, #7, #8 e #10)
 app.include_router(inteligencia_router)

@@ -168,15 +168,17 @@ A camada de segurança implementa controles essenciais para proteção de runtim
    - Comparação segura em tempo constante (`secrets.compare_digest`) para prevenir ataques de temporização (timing attacks).
    - Ativação dinâmica: se `API_KEY` não for configurada no ambiente, a autenticação opera desligada (compatibilidade de desenvolvimento e testes locais).
    - Exceções seguras: requisições `OPTIONS` (preflight do CORS) e o endpoint de monitoramento `/api/saude` permanecem abertos.
-   - Resposta padronizada `401 Unauthorized` com detalhe claro caso a chave seja ausente ou inválida.
+   - Resposta padronizada `401 Unauthorized` com detalhe claro caso a chave seja ausente ou inválida (com cabeçalhos CORS, para o navegador conseguir ler o erro).
+   - Os canais Slack e Teams enviam `X-API-Key` automaticamente quando `API_KEY` está definida no ambiente deles. **O frontend web ainda não envia o cabeçalho:** ligar `API_KEY` hoje bloqueia a interface web. Uma chave embutida no bundle do navegador é pública, então para a web ela serve como barreira contra uso casual, não como segredo.
 
 2. **Limite de Taxa de Requisições (`RATE_LIMIT_POR_MINUTO`):**
    - Rate limiting por IP utilizando janela deslizante de 60 segundos.
+   - O IP é o `request.client.host`; o `X-Forwarded-For` enviado pelo cliente não é confiado (trocar o valor não zera a cota). Atrás do ALB do ECS, defina `FORWARDED_ALLOW_IPS` com a faixa da VPC para o uvicorn usar o IP real repassado pelo balanceador; sem isso, todo o tráfego conta como o IP do ALB.
    - Desligado quando a variável não está definida (ou `<= 0`), garantindo zero impacto nos testes unitários e de integração.
    - Ao ultrapassar a cota, responde com `429 Too Many Requests` e cabeçalho `Retry-After` indicando os segundos até a liberação.
 
 3. **Validação Estrita de Uploads e Digitalização:**
-   - Prevenção contra Directory Traversal (`..`, `/`, `\` no nome de arquivo rejeitados com `400 Bad Request`).
+   - Prevenção contra Directory Traversal (nomes com `/`, `\`, byte nulo, ou iguais a `.`/`..` rejeitados com `400 Bad Request`). O nome mostrado no lote é o original (acentos e espaços preservados); o nome gravado em disco é saneado.
    - Limite rígido de 10 MB por arquivo e 50 MB por lote (`413 Payload Too Large`).
    - Validação de formato real via magic bytes (PDF `%PDF`, PNG `\x89PNG`, JPEG `\xff\xd8\xff`, Markdown UTF-8 sem bytes nulos; rejeição com `415 Unsupported Media Type`).
 
