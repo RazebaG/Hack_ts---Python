@@ -17,6 +17,10 @@ from app.ficha.modelos import (
     Cobertura,
     PontosFicha,
     FamiliaDocumento,
+    SinaisTriagem,
+    ProximoPrazoTriagem,
+    ItemTriagem,
+    TriagemResposta,
 )
 from app.ficha.metadados import (
     extrair_metadados_documento,
@@ -64,6 +68,10 @@ __all__ = [
     "Cobertura",
     "PontosFicha",
     "FamiliaDocumento",
+    "SinaisTriagem",
+    "ProximoPrazoTriagem",
+    "ItemTriagem",
+    "TriagemResposta",
     "extrair_metadados_documento",
     "extrair_governanca",
     "extrair_identidade",
