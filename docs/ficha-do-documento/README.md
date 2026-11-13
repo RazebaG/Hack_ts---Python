@@ -10,6 +10,8 @@ Pacote de escopo (PROPOSTA de 12/11/2026) das duas funcionalidades que os mentor
 | `REQUISITOS-FICHA-DO-DOCUMENTO-v1.md` | Todos | Insight do mentor, diferenciais, RF44–RF76, RNF19–RNF26, critérios de aceite, riscos, corte |
 | `FLUXO-DE-TELAS-FICHA-v1.md` | Frontend | **Mesa de decisão na T1 (seção 0)**, T14 (Ficha completa), T16 (Apresentação), T17 (Fila de atenção), Painel de Fontes, mudanças em T2/T7/T8, estados, mobile, microcopy, ordem de entrega |
 | `CONTRATO-API-ADENDO-v0.4.md` | Frontend e backend | C22–C27: ficha, regenerar, perguntar com escopo e fontes consultadas, apresentação, triagem |
+| `MODO-APRESENTACAO-v1.md` | Frontend | Modo apresentação de 5 minutos a partir da Mesa: 8 cartões, tempo, roteiro falado, teclado, PDF, estados, aceite (P1) |
+| `mock-apresentacao-CTR_2026-012.json` | Frontend | Exemplo dos 8 cartões do contrato (soma 300 s) |
 | `mock-ficha-CTR_2026-012.json` | Frontend | Exemplo completo de resposta, com trechos do `CTR_2026-012` do acervo |
 | `PRD-FICHA-DO-DOCUMENTO.md` | Backend (no repositório do backend) | Arquitetura, pipeline, modelo, avaliação, backlog F-01…F-18 com dependências, corte e divisão entre desktops |
 
